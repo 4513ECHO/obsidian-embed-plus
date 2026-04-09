@@ -18,7 +18,7 @@ jobs:
         run: |
           tag_version="${GITHUB_REF#refs/tags/}"
           manifest_version="$(jq .version < dist/manifest.json)"
-          [[ "$tag_version" != "v$manifest_version" ]] && exit 1
+          [[ "$tag_version" != "$manifest_version" ]] && exit 1
       - uses: softprops/action-gh-release@v2
         with:
           draft: true
