@@ -17,7 +17,7 @@ jobs:
       - name: Validate version
         run: |
           tag_version="${GITHUB_REF#refs/tags/}"
-          manifest_version="$(jq .version < dist/manifest.json)"
+          manifest_version="$(jq -r .version < dist/manifest.json)"
           [[ "$tag_version" != "$manifest_version" ]] && exit 1
       - uses: softprops/action-gh-release@v2
         with:
