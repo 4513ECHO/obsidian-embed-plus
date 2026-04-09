@@ -18,7 +18,10 @@ jobs:
         run: |
           tag_version="${GITHUB_REF#refs/tags/}"
           manifest_version="$(jq -r .version < dist/manifest.json)"
-          [[ "$tag_version" != "$manifest_version" ]] && exit 1
+          if [[ "$tag_version" != "$manifest_version" ]]; then
+            echo "Version mismatch found: tag $tag_version, manifest $manifest_version"
+            exit 1
+          fi
       - uses: softprops/action-gh-release@v2
         with:
           draft: true
