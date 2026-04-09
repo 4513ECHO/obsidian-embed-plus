@@ -1,0 +1,8 @@
+{
+  "id": "embed-plus",
+  "name": "Embed Plus",
+  "description": "Embed more websites, with external-image syntax and live-preview support.",
+  "version": "0.1.0",
+  "minAppVersion": "1.8.0",
+  "author": "Hibiki"
+}

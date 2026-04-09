@@ -1,0 +1,6 @@
+img[src^="https://bsky.app/profile/"]:has(+ .external-embed) {
+  display: none !important;
+}
+.image-embed:has(img[src^="https://bsky.app/profile/"]):has(+ .external-embed) {
+  display: none !important;
+}
