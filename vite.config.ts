@@ -80,7 +80,7 @@ export default defineConfig({
     rules: { ...obsidianmdRules },
   },
   build: {
-    target: "es2024",
+    target: "es2025",
     lib: {
       entry: "src/main.ts",
       formats: ["cjs"],

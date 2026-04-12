@@ -1,6 +1,25 @@
-img[src^="https://bsky.app/profile/"]:has(+ .external-embed) {
+img[src^="https://bsky.app/profile/"]:has(+ :is(.external-embed, .loading-embed, .error-embed)) {
   display: none !important;
 }
-.image-embed:has(img[src^="https://bsky.app/profile/"]):has(+ .external-embed) {
+.image-embed:has(img[src^="https://bsky.app/profile/"]):has(
+    + :is(.external-embed, .loading-embed, .error-embed)
+  ) {
   display: none !important;
+}
+
+:is(.loading-embed, .error-embed) {
+  display: flex;
+  align-content: center;
+  height: 150px;
+  width: 600px;
+  max-width: 100%;
+  background-color: var(--background-primary-alt);
+  border: var(--border-width) solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+}
+:is(.loading-embed, .error-embed) > div {
+  margin-inline: 2rem;
+}
+.error-embed > div {
+  color: var(--text-error);
 }

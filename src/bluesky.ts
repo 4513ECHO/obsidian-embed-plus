@@ -15,7 +15,7 @@ async function resolveHandle(handle: string): Promise<string> {
   }
   const url = new URL("/xrpc/com.atproto.identity.resolveHandle", "https://api.bsky.app");
   url.searchParams.set("handle", handle);
-  const payload: unknown = await requestUrl(url.toString()).json;
+  const payload: unknown = await requestUrl({ url: url.toString(), throw: false }).json;
   if (
     typeof payload === "object" &&
     payload &&
@@ -25,6 +25,7 @@ async function resolveHandle(handle: string): Promise<string> {
     didCache.set(handle, payload.did);
     return payload.did;
   }
+  // TODO: handle 400
   throw new Error(`Failed to resolve bluesky handle: ${handle}`);
 }
 
@@ -118,5 +119,9 @@ export class BlueskyWidget extends WidgetType {
 
   toDOM(view: EditorView): HTMLElement {
     return createWidget(this.#src, view.dom);
+  }
+
+  eq(other: BlueskyWidget) {
+    return this.#src === other.#src;
   }
 }

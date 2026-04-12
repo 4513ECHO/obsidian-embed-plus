@@ -1,6 +1,6 @@
 import { Plugin } from "obsidian";
-import { type Range, StateEffect, StateField } from "@codemirror/state";
-import { Decoration, type DecorationSet, EditorView, ViewPlugin } from "@codemirror/view";
+import { EditorState, StateEffect, StateField } from "@codemirror/state";
+import { Decoration, EditorView, WidgetType, ViewPlugin } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
 import { BlueskyWidget, createElement } from "./bluesky.ts";
 
@@ -17,89 +17,157 @@ export default class extends Plugin {
   }
 }
 
-const stateEffect = StateEffect.define<{ decorations: DecorationSet }>({});
-const decorationField = StateField.define<DecorationSet>({
+const fulfilledEffect = StateEffect.define<{ url: string; widget: WidgetType }>();
+const rejectedEffect = StateEffect.define<{ url: string; error: Error }>();
+
+const decorationField = StateField.define<{
+  pos: Map<string, number>;
+  widgets: Map<string, WidgetType>;
+  pending: Map<string, Promise<WidgetType>>;
+}>({
   create() {
-    return Decoration.none;
+    return { pos: new Map(), widgets: new Map(), pending: new Map() };
   },
-  update(value, transaction) {
+  update(oldValue, transaction) {
+    const value = {
+      pos: new Map(oldValue.pos),
+      widgets: new Map(oldValue.widgets),
+      pending: new Map(oldValue.pending),
+    };
     for (const effect of transaction.effects) {
-      if (effect.is(stateEffect)) {
-        return effect.value.decorations;
+      if (effect.is(fulfilledEffect)) {
+        value.widgets.set(effect.value.url, effect.value.widget);
+        value.pending.delete(effect.value.url);
+      } else if (effect.is(rejectedEffect)) {
+        value.widgets.set(effect.value.url, new ErrorWidget(effect.value.error));
+        value.pending.delete(effect.value.url);
+      }
+    }
+    value.pos.clear();
+    for (const { pos, url } of gatherUrlPos(transaction.state)) {
+      value.pos.set(url, pos);
+      if (value.widgets.has(url) || value.pending.has(url)) {
+        continue;
+      }
+      const widget = BlueskyWidget.create(url);
+      if (widget instanceof Promise) {
+        value.pending.set(url, widget);
+      } else {
+        value.widgets.set(url, widget);
       }
     }
     return value;
   },
+  compare(a, b) {
+    return (
+      compareIter(a.pos.keys(), b.pos.keys()) &&
+      compareIter(a.widgets.keys(), b.widgets.keys()) &&
+      compareIter(a.pending.keys(), b.pending.keys())
+    );
+  },
   provide(field) {
-    return EditorView.decorations.from(field);
+    return EditorView.decorations.from(field, (value) => {
+      const decorations = value.pos
+        .entries()
+        .map(([url, pos]) =>
+          Decoration.widget({
+            widget: value.widgets.get(url) ?? new LoadingWidget(),
+            side: 1,
+            block: true,
+          }).range(pos),
+        )
+        .toArray();
+      return Decoration.set(decorations);
+    });
   },
 });
 
-type MaybePromise<T> = T | Promise<T>;
+function compareIter<T>(a: IteratorObject<T>, b: IteratorObject<T>): boolean {
+  const aSet = new Set(a);
+  const bSet = new Set(b);
+  return aSet.size === bSet.size && aSet.isSubsetOf(bSet) && bSet.isSubsetOf(aSet);
+}
 
-function buildDecorations(view: EditorView): MaybePromise<Range<Decoration>>[] {
-  const urls: { from: number; to: number; url: string }[] = [];
+class LoadingWidget extends WidgetType {
+  toDOM(view: EditorView): HTMLElement {
+    const container = view.dom.createDiv({ cls: "loading-embed" });
+    container.createDiv({ text: "Loading..." });
+    return container;
+  }
 
-  const cursor = syntaxTree(view.state).cursor();
+  eq(_other: LoadingWidget) {
+    return true;
+  }
+
+  get estimatedHeight(): number {
+    return 150;
+  }
+}
+class ErrorWidget extends WidgetType {
+  #error: Error;
+  constructor(error: Error) {
+    super();
+    this.#error = error;
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const container = view.dom.createDiv({ cls: "error-embed" });
+    container.createDiv({ text: this.#error.toString() });
+    return container;
+  }
+
+  eq(other: ErrorWidget) {
+    return this.#error.name === other.#error.name && this.#error.message === other.#error.message;
+  }
+
+  get estimatedHeight(): number {
+    return 150;
+  }
+}
+
+function gatherUrlPos(state: EditorState): { pos: number; url: string }[] {
+  const result: { pos: number; url: string }[] = [];
+
+  const cursor = syntaxTree(state).cursor();
   do {
     if (cursor.name !== "formatting_formatting-image_image_image-marker") {
       continue;
     }
-    const { from } = cursor;
     cursor.nextSibling(); // Move to "formatting_formatting-image_image_image-alt-text_link"
-    if (view.state.sliceDoc(cursor.from, cursor.to) !== "[]") {
+    if (state.sliceDoc(cursor.from, cursor.to) !== "[]") {
       do {
         cursor.nextSibling();
       } while (cursor.type.name !== "formatting_formatting-image_image_image-alt-text_link");
     }
     cursor.nextSibling(); // Move to "formatting_formatting-link-string_string_url"
     cursor.nextSibling(); // Move to "string_url"
-    const url = view.state.sliceDoc(cursor.from, cursor.to);
+    const url = state.sliceDoc(cursor.from, cursor.to);
     if (!url.startsWith("https://bsky.app/profile/")) {
       continue;
     }
     cursor.nextSibling(); // Move to "formatting_formatting-link-string_string_url"
-    urls.push({ from, to: cursor.to, url });
+    result.push({ pos: cursor.to, url });
   } while (cursor.next());
 
-  const widgets: MaybePromise<Range<Decoration>>[] = [];
-  for (const { to, url } of urls) {
-    widgets.push(
-      BlueskyWidget.create(url).then((widget) =>
-        Decoration.widget({
-          widget,
-          side: 1,
-          block: true,
-        }).range(to),
-      ),
-    );
-  }
-
-  return widgets;
+  return result;
 }
 
 const viewPlugin = ViewPlugin.define(() => ({
   update(update) {
-    if (!update.docChanged && !update.viewportChanged) {
-      return;
-    }
-    // TODO: use "async sometimes" pattern
-    for (const deco of buildDecorations(update.view)) {
-      if (deco instanceof Promise) {
-        void deco.then((decoration) =>
+    const { pending } = update.state.field(decorationField);
+    for (const [url, widget] of pending) {
+      widget
+        .then((widget) =>
           update.view.dispatch({
-            effects: stateEffect.of({
-              decorations: Decoration.set([decoration]),
-            }),
+            effects: [fulfilledEffect.of({ url, widget })],
           }),
-        );
-      } else {
-        update.view.dispatch({
-          effects: stateEffect.of({
-            decorations: Decoration.set([deco]),
+        )
+        .catch((error) =>
+          update.view.dispatch({
+            effects: [rejectedEffect.of({ url, error })],
           }),
-        });
-      }
+        )
+        .finally(() => update.view.requestMeasure());
     }
   },
 }));
