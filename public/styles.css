@@ -1,13 +1,11 @@
-img[src^="https://bsky.app/profile/"]:has(+ :is(.external-embed, .loading-embed, .error-embed)) {
+img[src^="https://bsky.app/profile/"]:has(+ .embed-plus-container) {
   display: none !important;
 }
-.image-embed:has(img[src^="https://bsky.app/profile/"]):has(
-    + :is(.external-embed, .loading-embed, .error-embed)
-  ) {
+.image-embed:has(img[src^="https://bsky.app/profile/"]):has(+ .embed-plus-container) {
   display: none !important;
 }
 
-:is(.loading-embed, .error-embed) {
+.embed-plus-container > :is(.loading-embed, .error-embed) {
   display: flex;
   align-content: center;
   height: 150px;
@@ -17,9 +15,10 @@ img[src^="https://bsky.app/profile/"]:has(+ :is(.external-embed, .loading-embed,
   border: var(--border-width) solid var(--background-modifier-border);
   border-radius: var(--radius-m);
 }
-:is(.loading-embed, .error-embed) > div {
-  margin-inline: 2rem;
+.embed-plus-container > :is(.loading-embed, .error-embed) > div {
+  margin-block: auto;
+  margin-inline: 1rem;
 }
-.error-embed > div {
+.embed-plus-container > .error-embed > div {
   color: var(--text-error);
 }

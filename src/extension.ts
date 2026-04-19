@@ -1,21 +1,16 @@
 import { EditorState, StateEffect, StateField } from "@codemirror/state";
-import {
-  Decoration,
-  EditorView,
-  WidgetType,
-  ViewPlugin,
-  type DecorationSet,
-} from "@codemirror/view";
+import { Decoration, EditorView, ViewPlugin, type DecorationSet } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
 import { BlueskyWidget } from "./bluesky.ts";
 
-const fulfilledEffect = StateEffect.define<{ url: string; widget: WidgetType }>();
+const fulfilledEffect = StateEffect.define<{ url: string; src: string }>();
 const rejectedEffect = StateEffect.define<{ url: string; error: Error }>();
 
 class WidgetRegistry {
   #pos: Map<string, number> = new Map();
-  #widgets: Map<string, WidgetType> = new Map();
-  #pending: Map<string, Promise<WidgetType>> = new Map();
+  // TODO: Use polymorphism type definition
+  #widgets: Map<string, BlueskyWidget> = new Map();
+  #pending: Map<string, Promise<string>> = new Map();
 
   static compare(a: WidgetRegistry, b: WidgetRegistry): boolean {
     return (
@@ -37,25 +32,28 @@ class WidgetRegistry {
     this.#pos.clear();
     for (const { pos, url } of gatherUrlPos(state)) {
       this.#pos.set(url, pos);
-      if (this.#widgets.has(url) || this.#pending.has(url)) {
+      if (this.#widgets.has(url)) {
         continue;
       }
-      const widget = BlueskyWidget.create(url);
-      if (widget instanceof Promise) {
-        this.#pending.set(url, widget);
-      } else {
-        this.#widgets.set(url, widget);
-      }
+      const widget = new BlueskyWidget({ state: "loading", url });
+      this.#widgets.set(url, widget);
+      this.#pending.set(url, widget.resolveEmbedSrc());
     }
   }
 
   handleEffect(effects: readonly StateEffect<unknown>[]): void {
     for (const effect of effects) {
       if (effect.is(fulfilledEffect)) {
-        this.#widgets.set(effect.value.url, effect.value.widget);
+        this.#widgets.set(
+          effect.value.url,
+          new BlueskyWidget({ state: "loaded", url: effect.value.url, src: effect.value.src }),
+        );
         this.#pending.delete(effect.value.url);
       } else if (effect.is(rejectedEffect)) {
-        this.#widgets.set(effect.value.url, new ErrorWidget(effect.value.error));
+        this.#widgets.set(
+          effect.value.url,
+          new BlueskyWidget({ state: "error", url: effect.value.url, error: effect.value.error }),
+        );
         this.#pending.delete(effect.value.url);
       }
     }
@@ -66,7 +64,7 @@ class WidgetRegistry {
       .entries()
       .map(([url, pos]) =>
         Decoration.widget({
-          widget: this.#widgets.get(url) ?? new LoadingWidget(),
+          widget: this.#widgets.get(url)!,
           side: 1,
           block: true,
         }).range(pos),
@@ -78,16 +76,8 @@ class WidgetRegistry {
   startResolve(view: EditorView): void {
     for (const [url, widget] of this.#pending) {
       widget
-        .then((widget) =>
-          view.dispatch({
-            effects: [fulfilledEffect.of({ url, widget })],
-          }),
-        )
-        .catch((error) =>
-          view.dispatch({
-            effects: [rejectedEffect.of({ url, error })],
-          }),
-        )
+        .then((src) => view.dispatch({ effects: [fulfilledEffect.of({ url, src })] }))
+        .catch((error) => view.dispatch({ effects: [rejectedEffect.of({ url, error })] }))
         .finally(() => view.requestMeasure());
     }
   }
@@ -97,44 +87,6 @@ function compareIter<T>(a: IteratorObject<T>, b: IteratorObject<T>): boolean {
   const aSet = new Set(a);
   const bSet = new Set(b);
   return aSet.size === bSet.size && aSet.isSubsetOf(bSet) && bSet.isSubsetOf(aSet);
-}
-
-class LoadingWidget extends WidgetType {
-  toDOM(view: EditorView): HTMLElement {
-    const container = view.dom.createDiv({ cls: "loading-embed" });
-    container.createDiv({ text: "Loading..." });
-    return container;
-  }
-
-  eq(_other: LoadingWidget) {
-    return true;
-  }
-
-  get estimatedHeight(): number {
-    return 150;
-  }
-}
-
-class ErrorWidget extends WidgetType {
-  #error: Error;
-  constructor(error: Error) {
-    super();
-    this.#error = error;
-  }
-
-  toDOM(view: EditorView): HTMLElement {
-    const container = view.dom.createDiv({ cls: "error-embed" });
-    container.createDiv({ text: this.#error.toString() });
-    return container;
-  }
-
-  eq(other: ErrorWidget) {
-    return this.#error.name === other.#error.name && this.#error.message === other.#error.message;
-  }
-
-  get estimatedHeight(): number {
-    return 150;
-  }
 }
 
 function gatherUrlPos(state: EditorState): { pos: number; url: string }[] {
