@@ -7,12 +7,12 @@
   "dependencies": {
     "@codemirror/language": "^6.12.3",
     "@codemirror/state": "^6.6.0",
-    "@codemirror/view": "^6.41.0",
+    "@codemirror/view": "^6.41.1",
     "obsidian": "^1.12.3"
   },
   "devDependencies": {
-    "eslint-plugin-obsidianmd": "^0.1.9",
-    "typescript": "~6.0.2",
+    "eslint-plugin-obsidianmd": "^0.2.4",
+    "typescript": "~6.0.3",
     "vite": "catalog:",
     "vite-plus": "catalog:"
   },
