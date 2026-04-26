@@ -1,22 +1,22 @@
 import { EditorState, StateEffect, StateField } from "@codemirror/state";
-import { Decoration, EditorView, ViewPlugin, type DecorationSet } from "@codemirror/view";
+import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
+import { constructWidget } from "./effect.ts";
 import { BlueskyWidget } from "./bluesky.ts";
-
-const fulfilledEffect = StateEffect.define<{ url: string; src: string }>();
-const rejectedEffect = StateEffect.define<{ url: string; error: Error }>();
 
 class WidgetRegistry {
   #pos: Map<string, number> = new Map();
   // TODO: Use polymorphism type definition
   #widgets: Map<string, BlueskyWidget> = new Map();
-  #pending: Map<string, Promise<string>> = new Map();
 
   static compare(a: WidgetRegistry, b: WidgetRegistry): boolean {
     return (
       compareIter(a.#pos.keys(), b.#pos.keys()) &&
       compareIter(a.#widgets.keys(), b.#widgets.keys()) &&
-      compareIter(a.#pending.keys(), b.#pending.keys())
+      a.#widgets.entries().every(([url, widget]) => {
+        const other = b.#widgets.get(url);
+        return other && widget.eq(other);
+      })
     );
   }
 
@@ -24,7 +24,6 @@ class WidgetRegistry {
     const cloned = new WidgetRegistry();
     cloned.#pos = new Map(this.#pos);
     cloned.#widgets = new Map(this.#widgets);
-    cloned.#pending = new Map(this.#pending);
     return cloned;
   }
 
@@ -37,25 +36,12 @@ class WidgetRegistry {
       }
       const widget = new BlueskyWidget({ state: "loading", url });
       this.#widgets.set(url, widget);
-      this.#pending.set(url, widget.resolveEmbedSrc());
     }
   }
 
   handleEffect(effects: readonly StateEffect<unknown>[]): void {
-    for (const effect of effects) {
-      if (effect.is(fulfilledEffect)) {
-        this.#widgets.set(
-          effect.value.url,
-          new BlueskyWidget({ state: "loaded", url: effect.value.url, src: effect.value.src }),
-        );
-        this.#pending.delete(effect.value.url);
-      } else if (effect.is(rejectedEffect)) {
-        this.#widgets.set(
-          effect.value.url,
-          new BlueskyWidget({ state: "error", url: effect.value.url, error: effect.value.error }),
-        );
-        this.#pending.delete(effect.value.url);
-      }
+    for (const [url, widget] of constructWidget(effects, BlueskyWidget)) {
+      this.#widgets.set(url, widget);
     }
   }
 
@@ -71,15 +57,6 @@ class WidgetRegistry {
       )
       .toArray();
     return Decoration.set(decorations);
-  }
-
-  startResolve(view: EditorView): void {
-    for (const [url, widget] of this.#pending) {
-      widget
-        .then((src) => view.dispatch({ effects: [fulfilledEffect.of({ url, src })] }))
-        .catch((error) => view.dispatch({ effects: [rejectedEffect.of({ url, error })] }))
-        .finally(() => view.requestMeasure());
-    }
   }
 }
 
@@ -134,10 +111,4 @@ const widgetField = StateField.define<WidgetRegistry>({
   },
 });
 
-const viewPlugin = ViewPlugin.define(() => ({
-  update(update) {
-    update.state.field(widgetField).startResolve(update.view);
-  },
-}));
-
-export const extensions = [widgetField, viewPlugin];
+export const extensions = [widgetField];

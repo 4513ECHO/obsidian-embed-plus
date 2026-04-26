@@ -1,5 +1,6 @@
 import { EditorView, WidgetType } from "@codemirror/view";
 import { requestUrl } from "obsidian";
+import { fullfill, reject, type WidgetInit } from "./effect.ts";
 
 const EMBED_URL = "https://embed.bsky.app";
 
@@ -58,11 +59,6 @@ export async function createElement(url: string, dom: HTMLElement): Promise<void
   }
 }
 
-type WidgetInit =
-  | { state: "loading"; url: string }
-  | { state: "loaded"; url: string; src: string }
-  | { state: "error"; url: string; error: Error };
-
 export class BlueskyWidget extends WidgetType {
   static #heightCache: Map<string, number> = new Map();
   #url: string;
@@ -114,6 +110,9 @@ export class BlueskyWidget extends WidgetType {
     switch (this.#state) {
       case "loading":
         this.#renderLoading(container);
+        resolveEmbedSrc(this.#url)
+          .then((src) => fullfill(view, this.#url, src))
+          .catch((error) => reject(view, this.#url, error));
         break;
       case "error":
         this.#renderError(container);
@@ -192,9 +191,5 @@ export class BlueskyWidget extends WidgetType {
     if (height) {
       iframe.setAttribute("style", `height: ${height} px`);
     }
-  }
-
-  async resolveEmbedSrc(): Promise<string> {
-    return await resolveEmbedSrc(this.#url);
   }
 }
