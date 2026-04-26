@@ -2,19 +2,25 @@ import { StateEffect } from "@codemirror/state";
 import type { EditorView, WidgetType } from "@codemirror/view";
 
 export type WidgetInit =
-  | { state: "loading"; url: string }
-  | { state: "loaded"; url: string; src: string }
-  | { state: "error"; url: string; error: Error };
+  | { state: "resolving"; url: string }
+  | { state: "resolved"; url: string; src: string }
+  | { state: "loaded"; url: string }
+  | { state: "failed"; url: string; error: Error };
 
-const fulfilledEffect = StateEffect.define<{ url: string; src: string }>();
-const rejectedEffect = StateEffect.define<{ url: string; error: Error }>();
+const resolvedEffect = StateEffect.define<{ url: string; src: string }>();
+const failedEffect = StateEffect.define<{ url: string; error: Error }>();
+const loadedEffect = StateEffect.define<{ url: string }>();
 
-export function fullfill(view: EditorView, url: string, src: string): void {
-  view.dispatch({ effects: fulfilledEffect.of({ url, src }) });
+export function resolved(view: EditorView, url: string, src: string): void {
+  view.dispatch({ effects: resolvedEffect.of({ url, src }) });
 }
 
-export function reject(view: EditorView, url: string, error: Error): void {
-  view.dispatch({ effects: rejectedEffect.of({ url, error }) });
+export function failed(view: EditorView, url: string, error: Error): void {
+  view.dispatch({ effects: failedEffect.of({ url, error }) });
+}
+
+export function loaded(view: EditorView, url: string): void {
+  view.dispatch({ effects: loadedEffect.of({ url }) });
 }
 
 export function* constructWidget<T extends WidgetType>(
@@ -22,16 +28,18 @@ export function* constructWidget<T extends WidgetType>(
   widget: new (init: WidgetInit) => T,
 ): Generator<[string, T]> {
   for (const effect of effects) {
-    if (effect.is(fulfilledEffect)) {
+    if (effect.is(resolvedEffect)) {
       yield [
         effect.value.url,
-        new widget({ state: "loaded", url: effect.value.url, src: effect.value.src }),
+        new widget({ state: "resolved", url: effect.value.url, src: effect.value.src }),
       ];
-    } else if (effect.is(rejectedEffect)) {
+    } else if (effect.is(failedEffect)) {
       yield [
         effect.value.url,
-        new widget({ state: "error", url: effect.value.url, error: effect.value.error }),
+        new widget({ state: "failed", url: effect.value.url, error: effect.value.error }),
       ];
+    } else if (effect.is(loadedEffect)) {
+      yield [effect.value.url, new widget({ state: "loaded", url: effect.value.url })];
     }
   }
 }

@@ -1,6 +1,6 @@
 import { EditorView, WidgetType } from "@codemirror/view";
 import { requestUrl } from "obsidian";
-import { fullfill, reject, type WidgetInit } from "./effect.ts";
+import { resolved, failed, loaded, type WidgetInit } from "./effect.ts";
 
 const EMBED_URL = "https://embed.bsky.app";
 
@@ -46,23 +46,28 @@ async function resolveEmbedSrc(url: string): Promise<string> {
   return `${EMBED_URL}/embed/${did}/app.bsky.feed.post/${post}`;
 }
 
+function unreachable(value: never): never {
+  throw new Error("Unexpected value: " + value);
+}
+
 // TODO: use "loading" state
 export async function createElement(url: string, dom: HTMLElement): Promise<void> {
   const view = { dom } as EditorView;
   try {
     const src = await resolveEmbedSrc(url);
-    const widget = new BlueskyWidget({ state: "loaded", url, src });
+    const widget = new BlueskyWidget({ state: "resolved", url, src });
     dom.replaceWith(widget.toDOM(view));
   } catch (error) {
-    const widget = new BlueskyWidget({ state: "error", url, error: error as Error });
+    const widget = new BlueskyWidget({ state: "failed", url, error: error as Error });
     dom.replaceWith(widget.toDOM(view));
   }
 }
 
 export class BlueskyWidget extends WidgetType {
   static #heightCache: Map<string, number> = new Map();
+  static #loadedDispatchers: Map<string, () => void> = new Map();
   #url: string;
-  #state: "loading" | "error" | "loaded";
+  #state: WidgetInit["state"];
   #error?: Error;
   #src?: string;
 
@@ -78,8 +83,7 @@ export class BlueskyWidget extends WidgetType {
       for (const container of containers) {
         const url = container.getAttribute("data-url")!;
         this.#heightCache.set(url, height);
-        container.querySelector("iframe")?.setAttribute("style", `height: ${height}px`);
-        container.querySelector(".loading-embed")?.remove();
+        this.#loadedDispatchers.get(url)?.();
       }
     });
   }
@@ -89,16 +93,17 @@ export class BlueskyWidget extends WidgetType {
     this.#url = init.url;
     this.#state = init.state;
     switch (init.state) {
-      case "loading":
+      case "resolving":
+      case "loaded":
         break;
-      case "error":
+      case "failed":
         this.#error = init.error;
         break;
-      case "loaded":
+      case "resolved":
         this.#src = init.src;
         break;
       default:
-        throw new Error(`Invalid widget init: ${(init as { type: "invalid" }).type}`);
+        unreachable(init);
     }
   }
 
@@ -108,19 +113,24 @@ export class BlueskyWidget extends WidgetType {
       attr: { "data-url": this.#url, "data-state": this.#state },
     });
     switch (this.#state) {
-      case "loading":
+      case "resolving":
         this.#renderLoading(container);
         resolveEmbedSrc(this.#url)
-          .then((src) => fullfill(view, this.#url, src))
-          .catch((error) => reject(view, this.#url, error));
+          .then((src) => resolved(view, this.#url, src))
+          .catch((error) => failed(view, this.#url, error));
         break;
-      case "error":
-        this.#renderError(container);
+      case "resolved":
+        this.#renderLoading(container);
+        this.#renderIframe(container, view);
         break;
       case "loaded":
-        this.#renderLoading(container);
-        this.#renderLoaded(container);
+        this.#renderIframe(container, view);
         break;
+      case "failed":
+        this.#renderError(container);
+        break;
+      default:
+        unreachable(this.#state);
     }
     return container;
   }
@@ -133,23 +143,30 @@ export class BlueskyWidget extends WidgetType {
     return BlueskyWidget.#heightCache.get(this.#url) ?? -1;
   }
 
-  updateDOM(dom: HTMLElement): boolean {
-    const targetUrl = dom.getAttribute("data-url");
-    if (!targetUrl || this.#url !== targetUrl) {
-      return true;
+  updateDOM(dom: HTMLElement, view: EditorView): boolean {
+    const prevUrl = dom.getAttribute("data-url");
+    if (!prevUrl || this.#url !== prevUrl) {
+      return false;
     }
     switch (this.#state) {
-      case "loading":
+      case "resolving":
+        return false;
+      case "resolved":
+        this.#renderIframe(dom, view);
         return true;
-      case "error": {
+      case "loaded":
+        const iframe = dom.querySelector("iframe");
+        if (iframe) {
+          iframe.style.height = `${BlueskyWidget.#heightCache.get(this.#url)}px`;
+        }
+        dom.querySelector(".loading-embed")?.remove();
+        return true;
+      case "failed":
+        dom.querySelector(".loading-embed")?.remove();
         this.#renderError(dom);
-        return false;
-      }
-      case "loaded": {
-        this.#renderLoading(dom);
-        this.#renderLoaded(dom);
-        return false;
-      }
+        return true;
+      default:
+        unreachable(this.#state);
     }
   }
 
@@ -157,7 +174,7 @@ export class BlueskyWidget extends WidgetType {
     const loading = dom.createDiv({ cls: ["loading-embed"] });
     const height = BlueskyWidget.#heightCache.get(this.#url);
     if (height) {
-      loading.setAttribute("style", `height: ${height} px`);
+      loading.style.height = `${height}px`;
     }
     loading.createDiv({ text: "Loading..." });
   }
@@ -170,7 +187,7 @@ export class BlueskyWidget extends WidgetType {
     error.createDiv({ text: this.#error.toString() });
   }
 
-  #renderLoaded(dom: HTMLElement): void {
+  #renderIframe(dom: HTMLElement, view: EditorView): void {
     if (!this.#src) {
       return;
     }
@@ -189,7 +206,9 @@ export class BlueskyWidget extends WidgetType {
     });
     const height = BlueskyWidget.#heightCache.get(this.#url);
     if (height) {
-      iframe.setAttribute("style", `height: ${height} px`);
+      iframe.style.height = `${height}px`;
+    } else {
+      BlueskyWidget.#loadedDispatchers.set(this.#url, () => loaded(view, this.#url));
     }
   }
 }

@@ -34,7 +34,7 @@ class WidgetRegistry {
       if (this.#widgets.has(url)) {
         continue;
       }
-      const widget = new BlueskyWidget({ state: "loading", url });
+      const widget = new BlueskyWidget({ state: "resolving", url });
       this.#widgets.set(url, widget);
     }
   }
