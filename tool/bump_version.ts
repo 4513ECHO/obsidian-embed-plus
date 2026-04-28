@@ -33,5 +33,6 @@ if (config.dryRun) {
 }
 
 await $`git apply --cached --index --unidiff-zero`.stdinText(patch);
-await $`git commit -m "chore: Bump version to ${incremented}"`;
-await $`git tag -a ${incremented} -m ${incremented}`;
+const message = `chore: Bump version to ${incremented}`;
+await $`git commit --gpg-sign --message ${message}`;
+await $`git tag --annotate ${incremented} --message ${incremented}`;
