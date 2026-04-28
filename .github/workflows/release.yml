@@ -15,16 +15,13 @@ jobs:
           cache: true
       - run: vp build --mode prod
       - name: Validate version
+        id: validate
         run: |
-          tag_version="${GITHUB_REF#refs/tags/}"
-          manifest_version="$(jq -r .version < dist/manifest.json)"
-          if [[ "$tag_version" != "$manifest_version" ]]; then
-            echo "Version mismatch found: tag $tag_version, manifest $manifest_version"
-            exit 1
-          fi
+          vp exec node ./tool/validate_ci.ts
       - uses: softprops/action-gh-release@v2
         with:
           draft: true
+          prerelease: ${{ steps.validate.outputs.prerelease == 'true' }}
           working_directory: dist
           files: |
             main.js

@@ -12,4 +12,3 @@ peerDependencyRules:
   allowedVersions:
     vite: "*"
     vitest: "*"
-tagVersionPrefix: ""

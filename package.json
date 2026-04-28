@@ -11,10 +11,16 @@
     "obsidian": "^1.12.3"
   },
   "devDependencies": {
+    "@optique/core": "^1.0.2",
+    "@optique/run": "^1.0.2",
+    "@types/node": "^25.6.0",
+    "@types/semver": "^7.7.1",
+    "dax": "^0.45.0",
     "eslint-plugin-obsidianmd": "^0.2.4",
+    "semver": "^7.7.4",
     "typescript": "~6.0.3",
     "vite": "catalog:",
     "vite-plus": "catalog:"
   },
-  "packageManager": "pnpm@10.33.0"
+  "packageManager": "pnpm@10.33.2"
 }

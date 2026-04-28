@@ -43,6 +43,9 @@ function copyManifest(): Plugin {
       const manifest = JSON.parse(
         await this.fs.readFile(join(root, "manifest.json"), { encoding: "utf8" }),
       );
+      if (mode !== "prod") {
+        manifest.version += "+dev";
+      }
       this.emitFile({
         type: "asset",
         fileName: "manifest.json",
@@ -89,6 +92,15 @@ export default defineConfig({
       external: ["obsidian", /^@codemirror/],
       output: {
         entryFileNames: "main.js",
+      },
+    },
+  },
+  run: {
+    tasks: {
+      "bump-version": { command: "node ./tool/bump_version.ts" },
+      "test-local": {
+        command: "node ./tool/test_local.ts",
+        input: ["dist/main.js", "dist/manifest.json", "dist/styles.css"],
       },
     },
   },
