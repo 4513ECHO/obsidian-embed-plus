@@ -32,7 +32,12 @@ if (config.dryRun) {
   process.exit(0);
 }
 
-await $`git apply --cached --index --unidiff-zero`.stdinText(patch);
+if (await $`git diff --cached --exit-code --quiet`.code() !== 0) {
+  console.error("Error: Staged changes exist");
+  process.exit(1);
+}
+await $`git apply --cached --unidiff-zero`.stdinText(patch);
+await $`git apply --unidiff-zero`.stdinText(patch);
 const message = `chore: Bump version to ${incremented}`;
 await $`git commit --gpg-sign --message ${message}`;
 await $`git tag --annotate ${incremented} --message ${incremented}`;
