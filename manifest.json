@@ -4,5 +4,6 @@
   "description": "Embed more websites, with external-image syntax and live-preview support.",
   "version": "0.4.1-0",
   "minAppVersion": "1.8.0",
-  "author": "Hibiki"
+  "author": "Hibiki",
+  "isDesktopOnly": false
 }
