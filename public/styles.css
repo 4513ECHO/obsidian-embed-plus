@@ -15,10 +15,20 @@ img[src^="https://bsky.app/profile/"]:has(+ .embed-plus-container) {
   border: var(--border-width) solid var(--background-modifier-border);
   border-radius: var(--radius-m);
 }
-.embed-plus-container > :is(.loading-embed, .error-embed) > div {
+.embed-plus-container > :is(.loading-embed, .error-embed) > * {
   margin-block: auto;
-  margin-inline: 1rem;
 }
-.embed-plus-container > .error-embed > div {
+.embed-plus-container > .error-embed {
   color: var(--text-error);
+}
+.embed-plus-container > .loading-embed + .external-embed {
+  height: 1px;
+}
+
+.embed-plus-container .icon-wrapper {
+  --icon-size: var(--icon-xl);
+  padding-inline: 1rem;
+}
+.embed-plus-container > .loading-embed svg {
+  animation: spin 2s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
 }

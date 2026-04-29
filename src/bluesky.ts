@@ -1,5 +1,5 @@
 import { EditorView, WidgetType } from "@codemirror/view";
-import { requestUrl } from "obsidian";
+import { requestUrl, setIcon } from "obsidian";
 import { resolved, failed, loaded, type WidgetInit } from "./effect.ts";
 
 const EMBED_URL = "https://embed.bsky.app";
@@ -140,7 +140,7 @@ export class BlueskyWidget extends WidgetType {
   }
 
   get estimatedHeight(): number {
-    return BlueskyWidget.#heightCache.get(this.#url) ?? -1;
+    return BlueskyWidget.#heightCache.get(this.#url) ?? 150;
   }
 
   updateDOM(dom: HTMLElement, view: EditorView): boolean {
@@ -148,6 +148,7 @@ export class BlueskyWidget extends WidgetType {
     if (!prevUrl || this.#url !== prevUrl) {
       return false;
     }
+    dom.setAttribute("data-state", this.#state);
     switch (this.#state) {
       case "resolving":
         return false;
@@ -176,7 +177,8 @@ export class BlueskyWidget extends WidgetType {
     if (height) {
       loading.style.height = `${height}px`;
     }
-    loading.createDiv({ text: "Loading..." });
+    setIcon(loading.createDiv({ cls: "icon-wrapper" }), "loader-circle");
+    loading.createEl("p", { text: "Loading..." });
   }
 
   #renderError(dom: HTMLElement): void {
@@ -184,7 +186,8 @@ export class BlueskyWidget extends WidgetType {
       return;
     }
     const error = dom.createDiv({ cls: "error-embed" });
-    error.createDiv({ text: this.#error.toString() });
+    setIcon(error.createDiv({ cls: "icon-wrapper" }), "circle-x");
+    error.createEl("p", { text: this.#error.toString() });
   }
 
   #renderIframe(dom: HTMLElement, view: EditorView): void {
