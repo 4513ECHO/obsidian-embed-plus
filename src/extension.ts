@@ -2,12 +2,11 @@ import { EditorState, StateEffect, StateField } from "@codemirror/state";
 import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
 import { constructWidget } from "./effect.ts";
-import { BlueskyWidget } from "./bluesky.ts";
+import { EmbedWidget } from "./widget.ts";
 
 class WidgetRegistry {
   #pos: Map<string, number> = new Map();
-  // TODO: Use polymorphism type definition
-  #widgets: Map<string, BlueskyWidget> = new Map();
+  #widgets: Map<string, EmbedWidget> = new Map();
 
   static compare(a: WidgetRegistry, b: WidgetRegistry): boolean {
     return (
@@ -34,13 +33,13 @@ class WidgetRegistry {
       if (this.#widgets.has(url)) {
         continue;
       }
-      const widget = new BlueskyWidget({ state: "resolving", url });
+      const widget = new EmbedWidget({ state: "resolving", url });
       this.#widgets.set(url, widget);
     }
   }
 
   handleEffect(effects: readonly StateEffect<unknown>[]): void {
-    for (const [url, widget] of constructWidget(effects, BlueskyWidget)) {
+    for (const [url, widget] of constructWidget(effects, EmbedWidget)) {
       this.#widgets.set(url, widget);
     }
   }

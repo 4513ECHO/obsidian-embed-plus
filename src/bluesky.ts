@@ -1,6 +1,5 @@
-import { EditorView, WidgetType } from "@codemirror/view";
-import { requestUrl, setIcon } from "obsidian";
-import { resolved, failed, loaded, type WidgetInit } from "./effect.ts";
+import { requestUrl } from "obsidian";
+import { EmbedSource } from "./embed_source.ts";
 
 const EMBED_URL = "https://embed.bsky.app";
 
@@ -46,172 +45,60 @@ async function resolveEmbedSrc(url: string): Promise<string> {
   return `${EMBED_URL}/embed/${did}/app.bsky.feed.post/${post}`;
 }
 
-function unreachable(value: never): never {
-  throw new Error("Unexpected value: " + value);
-}
-
-// TODO: use "loading" state
-export async function createElement(url: string, dom: HTMLElement): Promise<void> {
-  const view = { dom } as EditorView;
-  try {
-    const src = await resolveEmbedSrc(url);
-    const widget = new BlueskyWidget({ state: "resolved", url, src });
-    dom.replaceWith(widget.toDOM(view));
-  } catch (error) {
-    const widget = new BlueskyWidget({ state: "failed", url, error: error as Error });
-    dom.replaceWith(widget.toDOM(view));
-  }
-}
-
-export class BlueskyWidget extends WidgetType {
+export class Bluesky extends EmbedSource {
   static #heightCache: Map<string, number> = new Map();
-  static #loadedDispatchers: Map<string, () => void> = new Map();
+  static id = 0;
   #url: string;
-  #state: WidgetInit["state"];
-  #error?: Error;
-  #src?: string;
-
-  static {
-    window.addEventListener("message", (event) => {
-      if (event.origin !== EMBED_URL) {
-        return;
-      }
-      const { id, height } = event.data;
-      const containers = document.querySelectorAll(
-        `.embed-plus-container:has([data-bluesky-id="${id}"])`,
-      );
-      for (const container of containers) {
-        const url = container.getAttribute("data-url")!;
-        this.#heightCache.set(url, height);
-        this.#loadedDispatchers.get(url)?.();
-      }
-    });
-  }
-
-  constructor(init: WidgetInit) {
+  #id = (Bluesky.id++).toString();
+  constructor(url: string) {
     super();
-    this.#url = init.url;
-    this.#state = init.state;
-    switch (init.state) {
-      case "resolving":
-      case "loaded":
-        break;
-      case "failed":
-        this.#error = init.error;
-        break;
-      case "resolved":
-        this.#src = init.src;
-        break;
-      default:
-        unreachable(init);
-    }
+    this.#url = url;
   }
 
-  toDOM(view: EditorView): HTMLElement {
-    const container = view.dom.createDiv({
-      cls: "embed-plus-container",
-      attr: { "data-url": this.#url, "data-state": this.#state },
-    });
-    switch (this.#state) {
-      case "resolving":
-        this.#renderLoading(container);
-        resolveEmbedSrc(this.#url)
-          .then((src) => resolved(view, this.#url, src))
-          .catch((error) => failed(view, this.#url, error));
-        break;
-      case "resolved":
-        this.#renderLoading(container);
-        this.#renderIframe(container, view);
-        break;
-      case "loaded":
-        this.#renderIframe(container, view);
-        break;
-      case "failed":
-        this.#renderError(container);
-        break;
-      default:
-        unreachable(this.#state);
-    }
-    return container;
+  static override get meta() {
+    return {
+      name: "Bluesky",
+      logo: "https://bsky.app/favicon.ico",
+      origin: "https://bsky.app",
+    };
   }
 
-  eq(other: BlueskyWidget) {
-    return this.#url === other.#url && this.#state === other.#state;
-  }
-
-  get estimatedHeight(): number {
-    return BlueskyWidget.#heightCache.get(this.#url) ?? 150;
-  }
-
-  updateDOM(dom: HTMLElement, view: EditorView): boolean {
-    const prevUrl = dom.getAttribute("data-url");
-    if (!prevUrl || this.#url !== prevUrl) {
-      return false;
-    }
-    dom.setAttribute("data-state", this.#state);
-    switch (this.#state) {
-      case "resolving":
-        return false;
-      case "resolved":
-        this.#renderIframe(dom, view);
-        return true;
-      case "loaded":
-        const iframe = dom.querySelector("iframe");
-        if (iframe) {
-          iframe.style.height = `${BlueskyWidget.#heightCache.get(this.#url)}px`;
-        }
-        dom.querySelector(".loading-embed")?.remove();
-        return true;
-      case "failed":
-        dom.querySelector(".loading-embed")?.remove();
-        this.#renderError(dom);
-        return true;
-      default:
-        unreachable(this.#state);
-    }
-  }
-
-  #renderLoading(dom: HTMLElement): void {
-    const loading = dom.createDiv({ cls: ["loading-embed"] });
-    const height = BlueskyWidget.#heightCache.get(this.#url);
-    if (height) {
-      loading.style.height = `${height}px`;
-    }
-    setIcon(loading.createDiv({ cls: "icon-wrapper" }), "loader-circle");
-    loading.createEl("p", { text: "Loading..." });
-  }
-
-  #renderError(dom: HTMLElement): void {
-    if (!this.#error) {
-      return;
-    }
-    const error = dom.createDiv({ cls: "error-embed" });
-    setIcon(error.createDiv({ cls: "icon-wrapper" }), "circle-x");
-    error.createEl("p", { text: this.#error.toString() });
-  }
-
-  #renderIframe(dom: HTMLElement, view: EditorView): void {
-    if (!this.#src) {
-      return;
-    }
-    const id = Date.now().toString();
+  render(src: string): HTMLElement {
     const searchParams = new URLSearchParams({
-      id,
+      id: this.#id,
       colorMode: document.body.classList.contains("theme-dark") ? "dark" : "light",
     });
-    const iframe = dom.createEl("iframe", {
+    const iframe = createEl("iframe", {
       cls: ["external-embed", "node-insert-event"],
       attr: {
-        src: this.#src + "?" + searchParams.toString(),
+        src: src + "?" + searchParams.toString(),
         loading: "lazy",
-        "data-bluesky-id": id,
+        "data-bluesky-id": this.#id,
       },
     });
-    const height = BlueskyWidget.#heightCache.get(this.#url);
-    if (height) {
-      iframe.style.height = `${height}px`;
-    } else {
-      BlueskyWidget.#loadedDispatchers.set(this.#url, () => loaded(view, this.#url));
+    if (this.height) {
+      iframe.style.height = `${this.height}px`;
     }
+    return iframe;
+  }
+
+  override resolveSrc(): string | Promise<string> {
+    return resolveEmbedSrc(this.#url);
+  }
+
+  override get height(): number | undefined {
+    return Bluesky.#heightCache.get(this.#url);
+  }
+
+  override onMessage(event: MessageEvent<{ id: string; height: number }>): boolean {
+    if (event.origin !== EMBED_URL) {
+      return false;
+    }
+    const { id, height } = event.data;
+    if (id !== this.#id) {
+      return false;
+    }
+    Bluesky.#heightCache.set(this.#url, height);
+    return true;
   }
 }
