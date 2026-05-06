@@ -1,5 +1,5 @@
 import { requestUrl } from "obsidian";
-import { EmbedSource } from "./embed_source.ts";
+import { EmbedSource } from "../embed_source.ts";
 
 const EMBED_URL = "https://embed.bsky.app";
 
