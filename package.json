@@ -2,6 +2,9 @@
   "name": "obsidian-embed-plus",
   "private": true,
   "type": "module",
+  "scripts": {
+    "prepare": "vp config"
+  },
   "dependencies": {
     "@codemirror/language": "^6.12.3",
     "@codemirror/state": "^6.6.0",
