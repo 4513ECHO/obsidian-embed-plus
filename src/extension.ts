@@ -1,6 +1,6 @@
+import { syntaxTree } from "@codemirror/language";
 import { EditorState, StateEffect, StateField } from "@codemirror/state";
 import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
-import { syntaxTree } from "@codemirror/language";
 import { constructWidget } from "./effect.ts";
 import { EmbedWidget } from "./widget.ts";
 

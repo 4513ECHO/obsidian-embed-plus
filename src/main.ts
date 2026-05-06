@@ -1,8 +1,8 @@
 import { Plugin } from "obsidian";
+import { Bluesky } from "./bluesky.ts";
 import { EmbedSourceRegistry } from "./embed_source.ts";
 import { extensions } from "./extension.ts";
 import { createElement } from "./widget.ts";
-import { Bluesky } from "./bluesky.ts";
 
 export default class extends Plugin {
   override onload() {

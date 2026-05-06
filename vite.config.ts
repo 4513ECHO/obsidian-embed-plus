@@ -1,5 +1,5 @@
-import { defineConfig, type UserConfig, type Plugin } from "vite-plus";
 import { join } from "node:path";
+import { defineConfig, type UserConfig, type Plugin } from "vite-plus";
 
 const obsidianmdRules = {
   "obsidianmd/commands/no-command-in-command-id": "error",
@@ -76,7 +76,7 @@ export default defineConfig({
   staged: {
     "*": "vp check --fix",
   },
-  fmt: {},
+  fmt: { sortImports: { newlinesBetween: false } },
   lint: {
     options: { typeAware: true, typeCheck: true },
     jsPlugins: ["eslint-plugin-obsidianmd"],

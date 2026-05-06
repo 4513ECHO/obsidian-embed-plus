@@ -1,7 +1,7 @@
 import { object } from "@optique/core/constructs";
+import { optional } from "@optique/core/modifiers";
 import { argument, option } from "@optique/core/primitives";
 import { choice, string } from "@optique/core/valueparser";
-import { optional } from "@optique/core/modifiers";
 import { run } from "@optique/run";
 import $ from "dax";
 import semver from "semver";
@@ -32,7 +32,7 @@ if (config.dryRun) {
   process.exit(0);
 }
 
-if (await $`git diff --cached --exit-code --quiet`.code() !== 0) {
+if ((await $`git diff --cached --exit-code --quiet`.code()) !== 0) {
   console.error("Error: Staged changes exist");
   process.exit(1);
 }
