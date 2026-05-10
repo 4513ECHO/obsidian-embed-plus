@@ -12,9 +12,9 @@ export default class extends Plugin {
 
     this.registerMarkdownPostProcessor(async (element, _context) => {
       const embeds = element.querySelectorAll<HTMLElement>("img[src^='https://']");
-      await Promise.allSettled(
-        embeds.values().map((embed) => createElement(embed.getAttribute("src")!, embed)),
-      );
+      for (const embed of embeds) {
+        createElement(embed.getAttribute("src")!, embed);
+      }
     });
 
     this.registerEditorExtension(extensions);

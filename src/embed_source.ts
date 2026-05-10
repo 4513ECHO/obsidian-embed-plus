@@ -13,8 +13,12 @@ export interface EmbedSourceStatic {
 }
 
 export abstract class EmbedSource {
+  readonly url: string;
   static get meta(): EmbedSourceMeta {
     throw new Error("Not implemented");
+  }
+  constructor(url: string) {
+    this.url = url;
   }
   abstract render(src: string): HTMLElement;
   abstract resolveSrc(): string | Promise<string>;
@@ -25,11 +29,29 @@ export abstract class EmbedSource {
     void event;
     return false;
   }
+  loaded(): void {
+    EmbedSourceRegistry.dispatchLoaded(this.url);
+  }
 }
 
 export class EmbedSourceRegistry {
   static #sources: Set<EmbedSourceStatic> = new Set();
   static #instances: Map<string, EmbedSource> = new Map();
+  static #eventTarget = new EventTarget();
+  static {
+    this.#eventTarget.addEventListener("loaded", (event) => {
+      if (!isLoadedEvent(event)) {
+        return;
+      }
+      const { url } = event.detail;
+      for (const view of retriveViews(url)) {
+        loaded(view, url);
+      }
+      for (const dom of retriveReadingViewDoms(url)) {
+        dom.dispatchEvent(new Event("embed-plus:loaded"));
+      }
+    });
+  }
 
   static register(sources: readonly EmbedSourceStatic[]): void {
     for (const source of sources) {
@@ -45,6 +67,7 @@ export class EmbedSourceRegistry {
     const origin = new URL(url).origin;
     for (const source of this.#sources) {
       if (source.meta.origin === origin) {
+        // TODO: proper src check
         const instance = new source(url);
         this.#instances.set(url, instance);
         return instance;
@@ -54,15 +77,20 @@ export class EmbedSourceRegistry {
   }
 
   static handleMessage(event: MessageEvent): void {
-    for (const [url, instance] of this.#instances) {
+    for (const instance of this.#instances.values()) {
       if (instance.onMessage(event)) {
-        for (const view of retriveViews(url)) {
-          loaded(view, url);
-        }
         break;
       }
     }
   }
+
+  static dispatchLoaded(url: string): void {
+    this.#eventTarget.dispatchEvent(new CustomEvent("loaded", { detail: { url } }));
+  }
+}
+
+function isLoadedEvent(event: Event): event is CustomEvent<{ url: string }> {
+  return event instanceof CustomEvent && typeof event.detail.url === "string";
 }
 
 function retriveViews(url: string): EditorView[] {
@@ -76,4 +104,13 @@ function retriveViews(url: string): EditorView[] {
     }
   }
   return views;
+}
+
+function retriveReadingViewDoms(url: string): HTMLElement[] {
+  return document
+    .querySelectorAll<HTMLElement>(
+      `.markdown-reading-view .embed-plus-container[data-url="${url}"]`,
+    )
+    .values()
+    .toArray();
 }

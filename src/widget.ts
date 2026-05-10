@@ -20,6 +20,13 @@ function ErrorMessage(error: Error): HTMLElement {
   return errorEl;
 }
 
+function Container(url: string, state: WidgetInit["state"]): HTMLElement {
+  return createDiv({
+    cls: "embed-plus-container",
+    attr: { "data-url": url, "data-state": state },
+  });
+}
+
 export class EmbedWidget extends WidgetType {
   #url: string;
   #state: WidgetInit["state"];
@@ -47,10 +54,7 @@ export class EmbedWidget extends WidgetType {
   }
 
   toDOM(view: EditorView): HTMLElement {
-    const container = view.dom.createDiv({
-      cls: "embed-plus-container",
-      attr: { "data-url": this.#url, "data-state": this.#state },
-    });
+    const container = Container(this.#url, this.#state);
     switch (this.#state) {
       case "resolving":
         container.appendChild(Loading(this.#embedSource.height));
@@ -60,7 +64,10 @@ export class EmbedWidget extends WidgetType {
             .then((src) => resolved(view, this.#url, src))
             .catch((error) => failed(view, this.#url, error));
         } else {
-          resolved(view, this.#url, srcOrPromise);
+          this.#state = "resolved";
+          this.#src = srcOrPromise;
+          container.setAttribute("data-state", "resolved");
+          container.appendChild(this.#embedSource.render(this.#src!));
         }
         break;
       case "resolved":
@@ -113,24 +120,34 @@ export class EmbedWidget extends WidgetType {
 }
 
 // TODO: use "loading" state
-export async function createElement(url: string, dom: HTMLElement): Promise<void> {
+export function createElement(url: string, dom: HTMLElement): void {
   const embedSource = EmbedSourceRegistry.lookup(url);
   if (!embedSource) {
     return;
   }
-  const container = createDiv({ cls: "embed-plus-container", attr: { "data-url": url } });
+  const container = Container(url, "resolving");
+  const loading = Loading(embedSource.height);
+  container.appendChild(loading);
+  container.addEventListener("embed-plus:loaded", () => {
+    container.setAttribute("data-state", "loaded");
+    const iframe = container.querySelector("iframe");
+    if (iframe) {
+      iframe.style.height = `${embedSource.height}px`;
+    }
+    loading.remove();
+  });
   const srcOrPromise = embedSource.resolveSrc();
   if (srcOrPromise instanceof Promise) {
-    const loading = Loading(embedSource.height);
-    container.appendChild(loading);
-    try {
-      const src = await srcOrPromise;
-      container.appendChild(embedSource.render(src));
-    } catch (error) {
-      container.appendChild(ErrorMessage(error as Error));
-    } finally {
-      loading.remove();
-    }
+    srcOrPromise
+      .then((src) => {
+        container.setAttribute("data-state", "resolved");
+        container.appendChild(embedSource.render(src));
+      })
+      .catch((error) => {
+        container.setAttribute("data-state", "failed");
+        container.appendChild(ErrorMessage(error as Error));
+        loading.remove();
+      });
   } else {
     container.appendChild(embedSource.render(srcOrPromise));
   }

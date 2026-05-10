@@ -48,11 +48,9 @@ async function resolveEmbedSrc(url: string): Promise<string> {
 export class Bluesky extends EmbedSource {
   static #heightCache: Map<string, number> = new Map();
   static id = 0;
-  #url: string;
   #id = (Bluesky.id++).toString();
   constructor(url: string) {
-    super();
-    this.#url = url;
+    super(url);
   }
 
   static override get meta() {
@@ -83,11 +81,11 @@ export class Bluesky extends EmbedSource {
   }
 
   override resolveSrc(): string | Promise<string> {
-    return resolveEmbedSrc(this.#url);
+    return resolveEmbedSrc(this.url);
   }
 
   override get height(): number | undefined {
-    return Bluesky.#heightCache.get(this.#url);
+    return Bluesky.#heightCache.get(this.url);
   }
 
   override onMessage(event: MessageEvent<{ id: string; height: number }>): boolean {
@@ -98,7 +96,8 @@ export class Bluesky extends EmbedSource {
     if (id !== this.#id) {
       return false;
     }
-    Bluesky.#heightCache.set(this.#url, height);
+    Bluesky.#heightCache.set(this.url, height);
+    this.loaded();
     return true;
   }
 }
