@@ -11,7 +11,7 @@ export default class extends Plugin {
     EmbedSourceRegistry.register([Bluesky]);
 
     this.registerMarkdownPostProcessor(async (element, _context) => {
-      const embeds = element.querySelectorAll<HTMLElement>("img[src^='https://bsky.app/profile/']");
+      const embeds = element.querySelectorAll<HTMLElement>("img[src^='https://']");
       await Promise.allSettled(
         embeds.values().map((embed) => createElement(embed.getAttribute("src")!, embed)),
       );

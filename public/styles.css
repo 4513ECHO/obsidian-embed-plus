@@ -1,7 +1,7 @@
-img[src^="https://bsky.app/profile/"]:has(+ .embed-plus-container) {
+img[src^="https://"]:has(+ .embed-plus-container) {
   display: none !important;
 }
-.image-embed:has(img[src^="https://bsky.app/profile/"]):has(+ .embed-plus-container) {
+.image-embed:has(img[src^="https://"]):has(+ .embed-plus-container) {
   display: none !important;
 }
 

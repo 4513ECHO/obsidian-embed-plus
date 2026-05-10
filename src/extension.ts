@@ -2,6 +2,7 @@ import { syntaxTree } from "@codemirror/language";
 import { EditorState, StateEffect, StateField } from "@codemirror/state";
 import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
 import { constructWidget } from "./effect.ts";
+import { EmbedSourceRegistry } from "./embed_source.ts";
 import { EmbedWidget } from "./widget.ts";
 
 class WidgetRegistry {
@@ -29,6 +30,9 @@ class WidgetRegistry {
   gather(state: EditorState): void {
     this.#pos.clear();
     for (const { pos, url } of gatherUrlPos(state)) {
+      if (!EmbedSourceRegistry.lookup(url)) {
+        continue;
+      }
       this.#pos.set(url, pos);
       if (this.#widgets.has(url)) {
         continue;
@@ -82,7 +86,7 @@ function gatherUrlPos(state: EditorState): { pos: number; url: string }[] {
     cursor.nextSibling(); // Move to "formatting_formatting-link-string_string_url"
     cursor.nextSibling(); // Move to "string_url"
     const url = state.sliceDoc(cursor.from, cursor.to);
-    if (!url.startsWith("https://bsky.app/profile/")) {
+    if (!url.startsWith("https://")) {
       continue;
     }
     cursor.nextSibling(); // Move to "formatting_formatting-link-string_string_url"
