@@ -49,6 +49,7 @@ export class Bluesky extends EmbedSource {
   static #heightCache: Map<string, number> = new Map();
   static id = 0;
   #id = (Bluesky.id++).toString();
+  #src?: string;
   constructor(url: string) {
     super(url);
   }
@@ -61,7 +62,7 @@ export class Bluesky extends EmbedSource {
     };
   }
 
-  render(src: string): HTMLElement {
+  render(): HTMLElement {
     const searchParams = new URLSearchParams({
       id: this.#id,
       colorMode: document.body.classList.contains("theme-dark") ? "dark" : "light",
@@ -69,7 +70,7 @@ export class Bluesky extends EmbedSource {
     const iframe = createEl("iframe", {
       cls: ["external-embed", "node-insert-event"],
       attr: {
-        src: src + "?" + searchParams.toString(),
+        src: this.#src + "?" + searchParams.toString(),
         loading: "lazy",
         "data-bluesky-id": this.#id,
       },
@@ -80,8 +81,13 @@ export class Bluesky extends EmbedSource {
     return iframe;
   }
 
-  override resolveSrc(): string | Promise<string> {
-    return resolveEmbedSrc(this.url);
+  override resolveSrc(): void | Promise<void> {
+    if (this.#src) {
+      return;
+    }
+    return resolveEmbedSrc(this.url).then((src) => {
+      this.#src = src;
+    });
   }
 
   override get height(): number | undefined {

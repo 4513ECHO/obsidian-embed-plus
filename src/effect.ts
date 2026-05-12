@@ -3,16 +3,16 @@ import type { EditorView, WidgetType } from "@codemirror/view";
 
 export type WidgetInit =
   | { state: "resolving"; url: string }
-  | { state: "resolved"; url: string; src: string }
+  | { state: "resolved"; url: string }
   | { state: "loaded"; url: string }
   | { state: "failed"; url: string; error: Error };
 
-const resolvedEffect = StateEffect.define<{ url: string; src: string }>();
+const resolvedEffect = StateEffect.define<{ url: string }>();
 const failedEffect = StateEffect.define<{ url: string; error: Error }>();
 const loadedEffect = StateEffect.define<{ url: string }>();
 
-export function resolved(view: EditorView, url: string, src: string): void {
-  view.dispatch({ effects: resolvedEffect.of({ url, src }) });
+export function resolved(view: EditorView, url: string): void {
+  view.dispatch({ effects: resolvedEffect.of({ url }) });
 }
 
 export function failed(view: EditorView, url: string, error: Error): void {
@@ -29,10 +29,7 @@ export function* constructWidget<T extends WidgetType>(
 ): Generator<[string, T]> {
   for (const effect of effects) {
     if (effect.is(resolvedEffect)) {
-      yield [
-        effect.value.url,
-        new widget({ state: "resolved", url: effect.value.url, src: effect.value.src }),
-      ];
+      yield [effect.value.url, new widget({ state: "resolved", url: effect.value.url })];
     } else if (effect.is(failedEffect)) {
       yield [
         effect.value.url,

@@ -30,7 +30,6 @@ function Container(url: string, state: WidgetInit["state"]): HTMLElement {
 export class EmbedWidget extends WidgetType {
   #url: string;
   #state: WidgetInit["state"];
-  #src?: string;
   #error?: Error;
   #embedSource: EmbedSource;
   constructor(init: WidgetInit) {
@@ -38,9 +37,6 @@ export class EmbedWidget extends WidgetType {
     this.#url = init.url;
     this.#state = init.state;
     switch (init.state) {
-      case "resolved":
-        this.#src = init.src;
-        break;
       case "failed":
         this.#error = init.error;
         break;
@@ -58,24 +54,23 @@ export class EmbedWidget extends WidgetType {
     switch (this.#state) {
       case "resolving":
         container.appendChild(Loading(this.#embedSource.height));
-        const srcOrPromise = this.#embedSource.resolveSrc();
-        if (srcOrPromise instanceof Promise) {
-          srcOrPromise
-            .then((src) => resolved(view, this.#url, src))
+        const needResolve = this.#embedSource.resolveSrc();
+        if (needResolve instanceof Promise) {
+          needResolve
+            .then(() => resolved(view, this.#url))
             .catch((error) => failed(view, this.#url, error));
         } else {
           this.#state = "resolved";
-          this.#src = srcOrPromise;
           container.setAttribute("data-state", "resolved");
-          container.appendChild(this.#embedSource.render(this.#src!));
+          container.appendChild(this.#embedSource.render());
         }
         break;
       case "resolved":
         container.appendChild(Loading(this.#embedSource.height));
-        container.appendChild(this.#embedSource.render(this.#src!));
+        container.appendChild(this.#embedSource.render());
         break;
       case "loaded":
-        container.appendChild(this.#embedSource.render(this.#src!));
+        container.appendChild(this.#embedSource.render());
         break;
       case "failed":
         container.appendChild(ErrorMessage(this.#error!));
@@ -102,7 +97,7 @@ export class EmbedWidget extends WidgetType {
       case "resolving":
         return false;
       case "resolved":
-        dom.appendChild(this.#embedSource.render(this.#src!));
+        dom.appendChild(this.#embedSource.render());
         return true;
       case "loaded":
         const iframe = dom.querySelector("iframe");
@@ -119,7 +114,6 @@ export class EmbedWidget extends WidgetType {
   }
 }
 
-// TODO: use "loading" state
 export function createElement(url: string, dom: HTMLElement): void {
   const embedSource = EmbedSourceRegistry.lookup(url);
   if (!embedSource) {
@@ -136,12 +130,12 @@ export function createElement(url: string, dom: HTMLElement): void {
     }
     loading.remove();
   });
-  const srcOrPromise = embedSource.resolveSrc();
-  if (srcOrPromise instanceof Promise) {
-    srcOrPromise
-      .then((src) => {
+  const needResolve = embedSource.resolveSrc();
+  if (needResolve instanceof Promise) {
+    needResolve
+      .then(() => {
         container.setAttribute("data-state", "resolved");
-        container.appendChild(embedSource.render(src));
+        container.appendChild(embedSource.render());
       })
       .catch((error) => {
         container.setAttribute("data-state", "failed");
@@ -149,7 +143,7 @@ export function createElement(url: string, dom: HTMLElement): void {
         loading.remove();
       });
   } else {
-    container.appendChild(embedSource.render(srcOrPromise));
+    container.appendChild(embedSource.render());
   }
   dom.replaceWith(container);
 }

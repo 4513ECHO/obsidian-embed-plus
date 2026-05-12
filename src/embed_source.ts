@@ -20,8 +20,8 @@ export abstract class EmbedSource {
   constructor(url: string) {
     this.url = url;
   }
-  abstract render(src: string): HTMLElement;
-  abstract resolveSrc(): string | Promise<string>;
+  abstract render(): HTMLElement;
+  resolveSrc(): void | Promise<void> {}
   get height(): number | undefined {
     return undefined;
   }
