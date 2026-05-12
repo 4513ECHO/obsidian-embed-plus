@@ -27,8 +27,9 @@ img[src^="https://"]:has(+ .embed-plus-container) {
 
 .embed-plus-container .icon-wrapper {
   --icon-size: var(--icon-xl);
+  --icon-stroke: var(--icon-xl-stroke-width);
   padding-inline: 1rem;
 }
 .embed-plus-container > .loading-embed svg {
-  animation: spin 2s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
+  animation: spin 0.9s ease infinite;
 }
