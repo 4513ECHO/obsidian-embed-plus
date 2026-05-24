@@ -16,7 +16,7 @@ jobs:
       - uses: voidzero-dev/setup-vp@v1
         with:
           cache: true
-      - run: vp build --mode prod
+      - run: vp run build
       - name: Validate version
         id: validate
         run: |
