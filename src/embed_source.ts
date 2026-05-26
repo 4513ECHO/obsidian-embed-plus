@@ -89,8 +89,13 @@ export class EmbedSourceRegistry {
   }
 }
 
+const isDetail = (detail: unknown): detail is { url: string } =>
+  typeof detail === "object" &&
+  detail !== null &&
+  "url" in detail &&
+  typeof detail.url === "string";
 function isLoadedEvent(event: Event): event is CustomEvent<{ url: string }> {
-  return event instanceof CustomEvent && typeof event.detail.url === "string";
+  return event instanceof CustomEvent && isDetail(event.detail);
 }
 
 function retriveViews(url: string): EditorView[] {

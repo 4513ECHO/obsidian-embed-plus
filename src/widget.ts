@@ -52,19 +52,25 @@ export class EmbedWidget extends WidgetType {
   toDOM(view: EditorView): HTMLElement {
     const container = Container(this.#url, this.#state);
     switch (this.#state) {
-      case "resolving":
+      case "resolving": {
         container.appendChild(Loading(this.#embedSource.height));
         const needResolve = this.#embedSource.resolveSrc();
         if (needResolve instanceof Promise) {
           needResolve
             .then(() => resolved(view, this.#url))
-            .catch((error) => failed(view, this.#url, error));
+            .catch((error) => {
+              if (error instanceof Error) {
+                failed(view, this.#url, error);
+              }
+              throw error;
+            });
         } else {
           this.#state = "resolved";
           container.setAttribute("data-state", "resolved");
           container.appendChild(this.#embedSource.render());
         }
         break;
+      }
       case "resolved":
         container.appendChild(Loading(this.#embedSource.height));
         container.appendChild(this.#embedSource.render());
@@ -99,13 +105,14 @@ export class EmbedWidget extends WidgetType {
       case "resolved":
         dom.appendChild(this.#embedSource.render());
         return true;
-      case "loaded":
+      case "loaded": {
         const iframe = dom.querySelector("iframe");
         if (iframe) {
           iframe.style.height = `${this.#embedSource.height}px`;
         }
         dom.querySelector(".loading-embed")?.remove();
         return true;
+      }
       case "failed":
         dom.querySelector(".loading-embed")?.remove();
         dom.appendChild(ErrorMessage(this.#error!));

@@ -6,8 +6,6 @@ import { createElement } from "./widget.ts";
 
 export default class extends Plugin {
   override onload() {
-    console.log("loading Embed Plus");
-
     EmbedSourceRegistry.register([Bluesky]);
 
     this.registerMarkdownPostProcessor(async (element, _context) => {
