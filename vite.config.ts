@@ -40,6 +40,7 @@ export default defineConfig(({ mode }) => ({
     target: "es2025",
     lib: {
       entry: "src/main.ts",
+      cssFileName: "styles",
       formats: ["cjs"],
     },
     rolldownOptions: {

@@ -3,6 +3,7 @@ import { EmbedSourceRegistry } from "./embed_source.ts";
 import { extensions } from "./extension.ts";
 import { Bluesky } from "./source/bluesky.ts";
 import { createElement } from "./widget.ts";
+import "./styles.css";
 
 export default class extends Plugin {
   override onload() {
