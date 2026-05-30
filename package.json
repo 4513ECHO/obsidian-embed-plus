@@ -10,14 +10,14 @@
     "@codemirror/language": "^6.12.3",
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.43.0",
-    "obsidian": "^1.12.3"
+    "obsidian": "^1.13.0"
   },
   "devDependencies": {
     "@optique/core": "^1.0.2",
     "@optique/run": "^1.0.2",
     "@types/node": "^25.9.1",
     "@types/semver": "^7.7.1",
-    "@typescript/native-preview": "7.0.0-dev.20260521.1",
+    "@typescript/native-preview": "7.0.0-dev.20260527.2",
     "dax": "^0.45.0",
     "eslint": "^10.4.0",
     "eslint-plugin-obsidianmd": "^0.3.0",
@@ -26,5 +26,5 @@
     "vite": "catalog:",
     "vite-plus": "catalog:"
   },
-  "packageManager": "pnpm@11.2.2"
+  "packageManager": "pnpm@11.5.0"
 }

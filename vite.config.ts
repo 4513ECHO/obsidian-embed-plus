@@ -27,24 +27,8 @@ function copyManifest(): Plugin {
   };
 }
 
-// XXX: Access mode from config
-// See https://github.com/voidzero-dev/vite-plus/issues/930
-function modeWorkaround(): Plugin {
-  return {
-    name: "mode-workaround",
-    config(_config, { mode }) {
-      return {
-        build: {
-          sourcemap: mode === "prod" ? false : "inline",
-          minify: mode === "prod",
-        },
-      };
-    },
-  };
-}
-
-export default defineConfig({
-  plugins: [copyManifest(), modeWorkaround()],
+export default defineConfig(({ mode }) => ({
+  plugins: [copyManifest()],
   staged: {
     "*": "vp check --fix",
   },
@@ -64,15 +48,17 @@ export default defineConfig({
         entryFileNames: "main.js",
       },
     },
+    sourcemap: mode === "prod" ? false : "inline",
+    minify: mode === "prod",
   },
   run: {
     tasks: {
-      check: { command: "vp check && eslint src --flag unstable_native_nodejs_ts_config" },
-      "bump-version": { command: "node ./tool/bump_version.ts" },
+      check: ["vp check", "eslint src --flag unstable_native_nodejs_ts_config"],
+      "bump-version": "node ./tool/bump_version.ts",
       "test-local": {
         command: "node ./tool/test_local.ts",
         input: ["dist/main.js", "dist/manifest.json", "dist/styles.css"],
       },
     },
   },
-});
+}));
