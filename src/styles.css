@@ -33,3 +33,7 @@ img[src^="https://"]:has(+ .embed-plus-container) {
 .embed-plus-container > .loading-embed svg {
   animation: spin 0.9s ease infinite;
 }
+
+.embed-plus-container > .aspect-video {
+  aspect-ratio: 16 / 9;
+}
