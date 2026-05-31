@@ -8,14 +8,16 @@ const urlPattern = new URLPattern({
   baseURL: "https://bsky.app",
 });
 
+const API_URL = "https://api.bsky.app/xrpc/com.atproto.identity.resolveHandle";
 const didCache = new Map<string, string>();
 async function resolveHandle(handle: string): Promise<string> {
   if (didCache.has(handle)) {
     return didCache.get(handle)!;
   }
-  const url = new URL("/xrpc/com.atproto.identity.resolveHandle", "https://api.bsky.app");
-  url.searchParams.set("handle", handle);
-  const payload: unknown = await requestUrl({ url: url.toString(), throw: false }).json;
+  const payload: unknown = await requestUrl({
+    url: API_URL + "?" + new URLSearchParams({ handle }).toString(),
+    throw: false,
+  }).json;
   if (
     typeof payload === "object" &&
     payload &&
@@ -45,7 +47,7 @@ async function resolveEmbedSrc(url: string): Promise<string> {
   return `${EMBED_URL}/embed/${did}/app.bsky.feed.post/${post}`;
 }
 
-export class Bluesky extends EmbedSource {
+export default class Bluesky extends EmbedSource {
   static #heightCache: Map<string, number> = new Map();
   static id = 0;
   #id = (Bluesky.id++).toString();

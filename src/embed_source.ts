@@ -30,62 +30,54 @@ export abstract class EmbedSource {
     return false;
   }
   loaded(): void {
-    EmbedSourceRegistry.dispatchLoaded(this.url);
+    eventTarget.dispatchEvent(new CustomEvent("loaded", { detail: { url: this.url } }));
   }
 }
 
-export class EmbedSourceRegistry {
-  static #sources: Set<EmbedSourceStatic> = new Set();
-  static #instances: Map<string, EmbedSource> = new Map();
-  static #eventTarget = new EventTarget();
-  static {
-    this.#eventTarget.addEventListener("loaded", (event) => {
-      if (!isLoadedEvent(event)) {
-        return;
-      }
-      const { url } = event.detail;
-      for (const view of retriveViews(url)) {
-        loaded(view, url);
-      }
-      for (const dom of retriveReadingViewDoms(url)) {
-        dom.dispatchEvent(new Event("embed-plus:loaded"));
-      }
-    });
+const sources: Set<EmbedSourceStatic> = new Set();
+const instances: Map<string, EmbedSource> = new Map();
+const eventTarget = new EventTarget();
+eventTarget.addEventListener("loaded", (event) => {
+  if (!isLoadedEvent(event)) {
+    return;
   }
-
-  static register(sources: readonly EmbedSourceStatic[]): void {
-    for (const source of sources) {
-      this.#sources.add(source);
-    }
+  const { url } = event.detail;
+  for (const view of retriveViews(url)) {
+    loaded(view, url);
   }
+  for (const dom of retriveReadingViewDoms(url)) {
+    dom.dispatchEvent(new Event("embed-plus:loaded"));
+  }
+});
 
-  static lookup(url: string): EmbedSource | null {
-    const instance = this.#instances.get(url);
-    if (instance) {
+export function register(newSources: readonly EmbedSourceStatic[]): void {
+  for (const source of newSources) {
+    sources.add(source);
+  }
+}
+
+export function lookup(url: string): EmbedSource | null {
+  const instance = instances.get(url);
+  if (instance) {
+    return instance;
+  }
+  const origin = new URL(url).origin;
+  for (const source of sources) {
+    if (source.meta.origin === origin) {
+      // TODO: proper src check
+      const instance = new source(url);
+      instances.set(url, instance);
       return instance;
     }
-    const origin = new URL(url).origin;
-    for (const source of this.#sources) {
-      if (source.meta.origin === origin) {
-        // TODO: proper src check
-        const instance = new source(url);
-        this.#instances.set(url, instance);
-        return instance;
-      }
-    }
-    return null;
   }
+  return null;
+}
 
-  static handleMessage(event: MessageEvent): void {
-    for (const instance of this.#instances.values()) {
-      if (instance.onMessage(event)) {
-        break;
-      }
+export function handleMessage(event: MessageEvent): void {
+  for (const instance of instances.values()) {
+    if (instance.onMessage(event)) {
+      break;
     }
-  }
-
-  static dispatchLoaded(url: string): void {
-    this.#eventTarget.dispatchEvent(new CustomEvent("loaded", { detail: { url } }));
   }
 }
 

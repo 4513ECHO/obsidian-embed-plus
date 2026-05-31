@@ -1,72 +1,38 @@
 import { syntaxTree } from "@codemirror/language";
-import { EditorState, StateEffect, StateField } from "@codemirror/state";
+import { EditorState, StateField } from "@codemirror/state";
 import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
 import { constructWidget } from "./effect.ts";
-import { EmbedSourceRegistry } from "./embed_source.ts";
+import { lookup } from "./embed_source.ts";
 import { EmbedWidget } from "./widget.ts";
 
-class WidgetRegistry {
-  #pos: Map<string, number> = new Map();
-  #widgets: Map<string, EmbedWidget> = new Map();
+type WidgetRegistry = { pos: Map<string, number>; widgets: Map<string, EmbedWidget> };
 
-  static compare(a: WidgetRegistry, b: WidgetRegistry): boolean {
-    return (
-      compareIter(a.#pos.keys(), b.#pos.keys()) &&
-      compareIter(a.#widgets.keys(), b.#widgets.keys()) &&
-      a.#widgets.entries().every(([url, widget]) => {
-        const other = b.#widgets.get(url);
-        return other && widget.eq(other);
-      })
-    );
-  }
-
-  cloned(): WidgetRegistry {
-    const cloned = new WidgetRegistry();
-    cloned.#pos = new Map(this.#pos);
-    cloned.#widgets = new Map(this.#widgets);
-    return cloned;
-  }
-
-  gather(state: EditorState): void {
-    this.#pos.clear();
-    for (const { pos, url } of gatherUrlPos(state)) {
-      if (!EmbedSourceRegistry.lookup(url)) {
-        continue;
-      }
-      this.#pos.set(url, pos);
-      if (this.#widgets.has(url)) {
-        continue;
-      }
-      const widget = new EmbedWidget({ state: "resolving", url });
-      this.#widgets.set(url, widget);
-    }
-  }
-
-  handleEffect(effects: readonly StateEffect<unknown>[]): void {
-    for (const [url, widget] of constructWidget(effects, EmbedWidget)) {
-      this.#widgets.set(url, widget);
-    }
-  }
-
-  toDecorations(): DecorationSet {
-    const decorations = this.#pos
-      .entries()
-      .map(([url, pos]) =>
-        Decoration.widget({
-          widget: this.#widgets.get(url)!,
-          side: 1,
-          block: true,
-        }).range(pos),
-      )
-      .toArray();
-    return Decoration.set(decorations);
-  }
+function toDecorations(registry: WidgetRegistry): DecorationSet {
+  const decorations = registry.pos
+    .entries()
+    .map(([url, pos]) =>
+      Decoration.widget({
+        widget: registry.widgets.get(url)!,
+        side: 1,
+        block: true,
+      }).range(pos),
+    )
+    .toArray();
+  return Decoration.set(decorations);
 }
 
 function compareIter<T>(a: IteratorObject<T>, b: IteratorObject<T>): boolean {
   const aSet = new Set(a);
   const bSet = new Set(b);
   return aSet.size === bSet.size && aSet.isSubsetOf(bSet) && bSet.isSubsetOf(aSet);
+}
+
+function compare(a: WidgetRegistry, b: WidgetRegistry): boolean {
+  return (
+    compareIter(a.pos.keys(), b.pos.keys()) &&
+    compareIter(a.widgets.keys(), b.widgets.keys()) &&
+    a.widgets.entries().every(([url, widget]) => b.widgets.get(url)?.eq(widget))
+  );
 }
 
 function gatherUrlPos(state: EditorState): { pos: number; url: string }[] {
@@ -98,19 +64,34 @@ function gatherUrlPos(state: EditorState): { pos: number; url: string }[] {
 
 const widgetField = StateField.define<WidgetRegistry>({
   create() {
-    return new WidgetRegistry();
+    return { pos: new Map(), widgets: new Map() };
   },
   update(oldValue, transaction) {
-    const value = oldValue.cloned();
-    value.handleEffect(transaction.effects);
-    value.gather(transaction.state);
+    const value = {
+      pos: new Map(oldValue.pos),
+      widgets: new Map(oldValue.widgets),
+    };
+    for (const [url, widget] of constructWidget(transaction.effects, EmbedWidget)) {
+      value.widgets.set(url, widget);
+    }
+    value.pos.clear();
+    for (const { pos, url } of gatherUrlPos(transaction.state)) {
+      if (!lookup(url)) {
+        continue;
+      }
+      value.pos.set(url, pos);
+      if (!value.widgets.has(url)) {
+        const widget = new EmbedWidget({ state: "resolving", url });
+        value.widgets.set(url, widget);
+      }
+    }
     return value;
   },
   compare(a, b) {
-    return WidgetRegistry.compare(a, b);
+    return compare(a, b);
   },
   provide(field) {
-    return EditorView.decorations.from(field, (value) => value.toDecorations());
+    return EditorView.decorations.from(field, (value) => toDecorations(value));
   },
 });
 

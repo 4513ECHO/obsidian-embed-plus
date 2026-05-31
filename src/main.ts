@@ -1,13 +1,12 @@
 import { Plugin } from "obsidian";
-import { EmbedSourceRegistry } from "./embed_source.ts";
+import { register, handleMessage } from "./embed_source.ts";
 import { extensions } from "./extension.ts";
-import { Bluesky } from "./source/bluesky.ts";
 import { createElement } from "./widget.ts";
 import "./styles.css";
 
 export default class extends Plugin {
   override onload() {
-    EmbedSourceRegistry.register([Bluesky]);
+    register(Object.values(import.meta.glob("./source/*.ts", { eager: true, import: "default" })));
 
     this.registerMarkdownPostProcessor(async (element, _context) => {
       const embeds = element.querySelectorAll<HTMLElement>("img[src^='https://']");
@@ -18,8 +17,6 @@ export default class extends Plugin {
 
     this.registerEditorExtension(extensions);
 
-    this.registerDomEvent(window, "message", (event) => {
-      EmbedSourceRegistry.handleMessage(event);
-    });
+    this.registerDomEvent(window, "message", (event) => handleMessage(event));
   }
 }

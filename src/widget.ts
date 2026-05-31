@@ -1,10 +1,10 @@
 import { EditorView, WidgetType } from "@codemirror/view";
 import { setIcon } from "obsidian";
 import { type WidgetInit, resolved, failed } from "./effect.ts";
-import { type EmbedSource, EmbedSourceRegistry } from "./embed_source.ts";
+import { type EmbedSource, lookup } from "./embed_source.ts";
 
-function Loading(height?: number): HTMLElement {
-  const loadingEl = createDiv({ cls: "loading-embed" });
+function Loading(parent: HTMLElement, height?: number): HTMLElement {
+  const loadingEl = parent.createDiv({ cls: "loading-embed" });
   if (height) {
     loadingEl.style.height = `${height}px`;
   }
@@ -13,8 +13,8 @@ function Loading(height?: number): HTMLElement {
   return loadingEl;
 }
 
-function ErrorMessage(error: Error): HTMLElement {
-  const errorEl = createDiv({ cls: "error-embed" });
+function ErrorMessage(parent: HTMLElement, error: Error): HTMLElement {
+  const errorEl = parent.createDiv({ cls: "error-embed" });
   setIcon(errorEl.createDiv({ cls: "icon-wrapper" }), "circle-x");
   errorEl.createEl("p", { text: error.toString() });
   return errorEl;
@@ -36,12 +36,10 @@ export class EmbedWidget extends WidgetType {
     super();
     this.#url = init.url;
     this.#state = init.state;
-    switch (init.state) {
-      case "failed":
-        this.#error = init.error;
-        break;
+    if (init.state === "failed") {
+      this.#error = init.error;
     }
-    const embedSourceClass = EmbedSourceRegistry.lookup(init.url);
+    const embedSourceClass = lookup(init.url);
     if (embedSourceClass) {
       this.#embedSource = embedSourceClass;
     } else {
@@ -53,7 +51,7 @@ export class EmbedWidget extends WidgetType {
     const container = Container(this.#url, this.#state);
     switch (this.#state) {
       case "resolving": {
-        container.appendChild(Loading(this.#embedSource.height));
+        Loading(container, this.#embedSource.height);
         const needResolve = this.#embedSource.resolveSrc();
         if (needResolve instanceof Promise) {
           needResolve
@@ -72,28 +70,28 @@ export class EmbedWidget extends WidgetType {
         break;
       }
       case "resolved":
-        container.appendChild(Loading(this.#embedSource.height));
+        Loading(container, this.#embedSource.height);
         container.appendChild(this.#embedSource.render());
         break;
       case "loaded":
         container.appendChild(this.#embedSource.render());
         break;
       case "failed":
-        container.appendChild(ErrorMessage(this.#error!));
+        ErrorMessage(container, this.#error!);
         break;
     }
     return container;
   }
 
-  eq(other: this): boolean {
+  override eq(other: this): boolean {
     return this.#url === other.#url && this.#state === other.#state;
   }
 
-  get estimatedHeight(): number {
+  override get estimatedHeight(): number {
     return this.#embedSource.height ?? 150;
   }
 
-  updateDOM(dom: HTMLElement): boolean {
+  override updateDOM(dom: HTMLElement): boolean {
     const prevUrl = dom.getAttribute("data-url");
     if (!prevUrl || this.#url !== prevUrl) {
       return false;
@@ -115,20 +113,19 @@ export class EmbedWidget extends WidgetType {
       }
       case "failed":
         dom.querySelector(".loading-embed")?.remove();
-        dom.appendChild(ErrorMessage(this.#error!));
+        ErrorMessage(dom, this.#error!);
         return true;
     }
   }
 }
 
 export function createElement(url: string, dom: HTMLElement): void {
-  const embedSource = EmbedSourceRegistry.lookup(url);
+  const embedSource = lookup(url);
   if (!embedSource) {
     return;
   }
   const container = Container(url, "resolving");
-  const loading = Loading(embedSource.height);
-  container.appendChild(loading);
+  const loading = Loading(container, embedSource.height);
   container.addEventListener("embed-plus:loaded", () => {
     container.setAttribute("data-state", "loaded");
     const iframe = container.querySelector("iframe");
@@ -146,7 +143,7 @@ export function createElement(url: string, dom: HTMLElement): void {
       })
       .catch((error) => {
         container.setAttribute("data-state", "failed");
-        container.appendChild(ErrorMessage(error as Error));
+        ErrorMessage(container, error as Error);
         loading.remove();
       });
   } else {
