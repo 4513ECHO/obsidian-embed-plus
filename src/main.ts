@@ -8,10 +8,10 @@ export default class extends Plugin {
   override onload() {
     register(Object.values(import.meta.glob("./source/*.ts", { eager: true, import: "default" })));
 
-    this.registerMarkdownPostProcessor(async (element, _context) => {
-      const embeds = element.querySelectorAll<HTMLElement>("img[src^='https://']");
+    this.registerMarkdownPostProcessor((element, _context) => {
+      const embeds = element.querySelectorAll<HTMLImageElement>("img[src^='https://']");
       for (const embed of embeds) {
-        createElement(embed.getAttribute("src")!, embed);
+        createElement(embed.src, embed);
       }
     });
 

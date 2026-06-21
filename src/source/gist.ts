@@ -1,6 +1,11 @@
 import { requestUrl } from "obsidian";
 import { EmbedSource } from "../embed_source.ts";
 
+type GistResult = {
+  div: string;
+  stylesheet: string;
+};
+
 const EMBED_URL = "https://gist.github.com";
 const urlPattern = new URLPattern({
   pathname: "/:username?/:gistId",
@@ -49,7 +54,7 @@ export default class Gist extends EmbedSource {
       new URLSearchParams({
         file: matched.hash.input,
       }).toString();
-    return requestUrl(apiUrl).json.then(async (result) => {
+    return requestUrl(apiUrl).json.then(async (result: GistResult) => {
       const stylesheet = await requestUrl(result.stylesheet).text;
       const styleDecl = getComputedStyle(document.body);
       const interfaceFont = styleDecl.getPropertyValue("--font-interface");
