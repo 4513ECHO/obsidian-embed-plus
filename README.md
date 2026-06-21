@@ -17,4 +17,5 @@ Since Obsidian officially supports only [a few kinds of web pages](https://obsid
 ## Supported web pages
 
 - [Bluesky](https://bsky.app/)
+- [GitHub Gist](https://gist.github.com/)
 - [Niconico](https://www.nicovideo.jp/)
