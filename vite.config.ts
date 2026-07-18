@@ -54,7 +54,7 @@ export default defineConfig(({ mode }) => ({
   },
   run: {
     tasks: {
-      check: ["vp check", "eslint src --flag unstable_native_nodejs_ts_config"],
+      check: ["vp check", "eslint"],
       "bump-version": "node ./tool/bump_version.ts",
       "test-local": {
         command: "node ./tool/test_local.ts",
