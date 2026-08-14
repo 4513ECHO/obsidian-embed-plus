@@ -1,27 +1,29 @@
 import { syntaxTree } from "@codemirror/language";
 import { EditorState, StateField } from "@codemirror/state";
 import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
+import type { TreeCursor } from "@lezer/common";
 import { constructWidget } from "./effect.ts";
 import { lookup } from "./embed_source.ts";
 import { EmbedWidget } from "./widget.ts";
 
-type WidgetRegistry = { pos: Map<string, number>; widgets: Map<string, EmbedWidget> };
+type Pos = [from: number, to: number];
+type WidgetRegistry = { pos: Map<string, Pos>; widgets: Map<string, EmbedWidget> };
 
 function toDecorations(registry: WidgetRegistry): DecorationSet {
   const decorations = registry.pos
     .entries()
-    .map(([url, pos]) =>
+    .map(([url, [_from, to]]) =>
       Decoration.widget({
         widget: registry.widgets.get(url)!,
         side: 1,
         block: true,
-      }).range(pos),
+      }).range(to),
     )
     .toArray();
   return Decoration.set(decorations);
 }
 
-function compareIter<T>(a: IteratorObject<T>, b: IteratorObject<T>): boolean {
+function compareIter<T>(a: Iterable<T>, b: Iterable<T>): boolean {
   const aSet = new Set(a);
   const bSet = new Set(b);
   return aSet.size === bSet.size && aSet.isSubsetOf(bSet) && bSet.isSubsetOf(aSet);
@@ -31,33 +33,47 @@ function compare(a: WidgetRegistry, b: WidgetRegistry): boolean {
   return (
     compareIter(a.pos.keys(), b.pos.keys()) &&
     compareIter(a.widgets.keys(), b.widgets.keys()) &&
+    a.pos.entries().every(([url, pos]) => {
+      const bPos = b.pos.get(url);
+      return bPos && bPos[0] === pos[0] && bPos[1] === pos[1];
+    }) &&
     a.widgets.entries().every(([url, widget]) => b.widgets.get(url)?.eq(widget))
   );
 }
 
-function gatherUrlPos(state: EditorState): { pos: number; url: string }[] {
-  const result: { pos: number; url: string }[] = [];
+function advance(cursor: TreeCursor, name: string): boolean {
+  return cursor.nextSibling() && cursor.name === name;
+}
+function skip(cursor: TreeCursor, name: string): boolean {
+  if (cursor.name === name) return true;
+  while (cursor.nextSibling()) {
+    if (cursor.name === name) return true;
+  }
+  return false;
+}
+
+function gatherUrlPos(state: EditorState): Map<string, Pos> {
+  const result: Map<string, Pos> = new Map();
 
   const cursor = syntaxTree(state).cursor();
-  do {
-    if (cursor.name !== "formatting_formatting-image_image_image-marker") {
-      continue;
+  cursor.enter(0, 1);
+  while (true) {
+    if (!skip(cursor, "formatting_formatting-image_image_image-marker")) {
+      break;
     }
-    cursor.nextSibling(); // Move to "formatting_formatting-image_image_image-alt-text_link"
-    if (state.sliceDoc(cursor.from, cursor.to) !== "[]") {
-      do {
-        cursor.nextSibling();
-      } while (cursor.type.name !== "formatting_formatting-image_image_image-alt-text_link");
-    }
-    cursor.nextSibling(); // Move to "formatting_formatting-link-string_string_url"
-    cursor.nextSibling(); // Move to "string_url"
+    const { from } = cursor;
+    if (!advance(cursor, "formatting_formatting-image_image_image-alt-text_link")) continue;
+    if (!skip(cursor, "formatting_formatting-link-string_string_url")) continue;
+    if (!advance(cursor, "string_url")) continue;
+
     const url = state.sliceDoc(cursor.from, cursor.to);
     if (!url.startsWith("https://")) {
       continue;
     }
-    cursor.nextSibling(); // Move to "formatting_formatting-link-string_string_url"
-    result.push({ pos: cursor.to, url });
-  } while (cursor.next());
+
+    if (!advance(cursor, "formatting_formatting-link-string_string_url")) continue;
+    result.set(url, [from, cursor.to]);
+  }
 
   return result;
 }
@@ -67,7 +83,7 @@ const widgetField = StateField.define<WidgetRegistry>({
     return { pos: new Map(), widgets: new Map() };
   },
   update(oldValue, transaction) {
-    const value = {
+    const value: WidgetRegistry = {
       pos: new Map(oldValue.pos),
       widgets: new Map(oldValue.widgets),
     };
@@ -75,7 +91,7 @@ const widgetField = StateField.define<WidgetRegistry>({
       value.widgets.set(url, widget);
     }
     value.pos.clear();
-    for (const { pos, url } of gatherUrlPos(transaction.state)) {
+    for (const [url, pos] of gatherUrlPos(transaction.state).entries()) {
       if (!lookup(url)) {
         continue;
       }

@@ -44,7 +44,7 @@ export default defineConfig(({ mode }) => ({
       formats: ["cjs"],
     },
     rolldownOptions: {
-      external: ["obsidian", /^@codemirror/],
+      external: ["obsidian", /^@codemirror/, /^@lezer/],
       output: {
         entryFileNames: "main.js",
       },
