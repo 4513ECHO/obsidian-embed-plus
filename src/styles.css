@@ -1,5 +1,16 @@
-:is(img, .image-embed):has(+ .embed-plus-container) {
-  display: none !important;
+.cm-editor .cm-line:has(+ .embed-plus-container) .image-embed {
+  width: 100%;
+  & > .image-wrapper {
+    width: 100%;
+    & > :is(img, .image-resize-corner) {
+      visibility: hidden;
+    }
+  }
+}
+
+.cm-editor .cm-image-reveal-gap:has(+ .embed-plus-container),
+.cm-editor:has(.cm-image-reveal-gap + .embed-plus-container) .cm-image-reveal-tooltip .image-embed {
+  display: none;
 }
 
 .embed-plus-container > :is(.loading-embed, .error-embed) {
