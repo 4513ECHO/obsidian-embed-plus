@@ -12,7 +12,7 @@ $.setPrintCommand(true);
 
 const isRunning = await $`obsidian eval code=true`.stderr("null").timeout(1000).noThrow().text();
 if (isRunning !== "=> true") {
-  console.log("Obsidian is not running");
+  console.error("Obsidian is not running");
   process.exit(1);
 }
 

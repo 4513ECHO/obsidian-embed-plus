@@ -28,7 +28,7 @@ diff --git a/manifest.json b/manifest.json
 `;
 
 if (config.dryRun) {
-  console.log(patch);
+  await $`echo ${patch}`;
   process.exit(0);
 }
 
