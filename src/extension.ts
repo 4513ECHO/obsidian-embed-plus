@@ -1,6 +1,6 @@
 import { syntaxTree } from "@codemirror/language";
 import { EditorState, StateField } from "@codemirror/state";
-import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
+import { Decoration, EditorView, type DecorationSet, ViewPlugin } from "@codemirror/view";
 import type { TreeCursor } from "@lezer/common";
 import { constructWidget } from "./effect.ts";
 import { lookup } from "./embed_source.ts";
@@ -111,4 +111,17 @@ const widgetField = StateField.define<WidgetRegistry>({
   },
 });
 
-export const extensions = [widgetField];
+const overrideTooltip = ViewPlugin.define(() => ({
+  update(update) {
+    for (const url of update.state.field(widgetField).widgets.keys()) {
+      const tooltip = document.querySelector<HTMLDivElement>(
+        `.cm-image-reveal-tooltip:has(img[src="${url}"])`,
+      );
+      if (tooltip) {
+        tooltip.dataset.embedPlusOverriden = "true";
+      }
+    }
+  },
+}));
+
+export const extensions = [widgetField, overrideTooltip];
