@@ -7,17 +7,32 @@ import { lookup } from "./embed_source.ts";
 import { EmbedWidget } from "./widget.ts";
 
 type Pos = [from: number, to: number];
-type WidgetRegistry = { pos: Map<string, Pos>; widgets: Map<string, EmbedWidget> };
+/** `EncodedPos` is an unsigned 32-bit integer which represents `Pos` as follows:
+ * ```ts
+ * 0xffffffff
+ * //^^^^^    <- "from" (20 bits)
+ * //     ^^^ <- "length", which is "to - from" (12 bits)
+ * ```
+ */
+type EncodedPos = number & { __encodedPos: true };
+type WidgetRegistry = { pos: Map<EncodedPos, string>; widgets: Map<string, EmbedWidget> };
+
+function encodePos(pos: Pos): EncodedPos {
+  return (((pos[0] << 12) | (pos[1] - pos[0])) >>> 0) as EncodedPos;
+}
+function decodePos(encoded: EncodedPos): Pos {
+  return [encoded >>> 12, (encoded >>> 12) + (encoded & 0xfff)];
+}
 
 function toDecorations(registry: WidgetRegistry): DecorationSet {
   const decorations = registry.pos
     .entries()
-    .map(([url, [_from, to]]) =>
+    .map(([encoded, url]) =>
       Decoration.widget({
         widget: registry.widgets.get(url)!,
         side: 1,
         block: true,
-      }).range(to),
+      }).range(decodePos(encoded)[1]),
     )
     .toArray();
   return Decoration.set(decorations);
@@ -33,10 +48,6 @@ function compare(a: WidgetRegistry, b: WidgetRegistry): boolean {
   return (
     compareIter(a.pos.keys(), b.pos.keys()) &&
     compareIter(a.widgets.keys(), b.widgets.keys()) &&
-    a.pos.entries().every(([url, pos]) => {
-      const bPos = b.pos.get(url);
-      return bPos && bPos[0] === pos[0] && bPos[1] === pos[1];
-    }) &&
     a.widgets.entries().every(([url, widget]) => b.widgets.get(url)?.eq(widget))
   );
 }
@@ -52,9 +63,7 @@ function skip(cursor: TreeCursor, name: string): boolean {
   return false;
 }
 
-function gatherUrlPos(state: EditorState): Map<string, Pos> {
-  const result: Map<string, Pos> = new Map();
-
+function* gatherUrlPos(state: EditorState): Generator<[Pos, string]> {
   const cursor = syntaxTree(state).cursor();
   cursor.enter(0, 1);
   while (true) {
@@ -72,10 +81,8 @@ function gatherUrlPos(state: EditorState): Map<string, Pos> {
     }
 
     if (!advance(cursor, "formatting_formatting-link-string_string_url")) continue;
-    result.set(url, [from, cursor.to]);
+    yield [[from, cursor.to], url];
   }
-
-  return result;
 }
 
 const widgetField = StateField.define<WidgetRegistry>({
@@ -91,11 +98,11 @@ const widgetField = StateField.define<WidgetRegistry>({
       value.widgets.set(url, widget);
     }
     value.pos.clear();
-    for (const [url, pos] of gatherUrlPos(transaction.state).entries()) {
+    for (const [pos, url] of gatherUrlPos(transaction.state)) {
       if (!lookup(url)) {
         continue;
       }
-      value.pos.set(url, pos);
+      value.pos.set(encodePos(pos), url);
       if (!value.widgets.has(url)) {
         const widget = new EmbedWidget({ state: "resolving", url });
         value.widgets.set(url, widget);
