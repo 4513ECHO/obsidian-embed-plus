@@ -17,9 +17,6 @@ export default class Gist extends EmbedSource {
   static id = 0;
   #id = Gist.id++;
   #srcdoc?: string;
-  constructor(url: string) {
-    super(url);
-  }
 
   static override get meta() {
     return {

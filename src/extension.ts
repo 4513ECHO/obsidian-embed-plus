@@ -7,6 +7,7 @@ import { lookup } from "./embed_source.ts";
 import { EmbedWidget } from "./widget.ts";
 
 type Pos = [from: number, to: number];
+declare const tag: unique symbol;
 /** `EncodedPos` is an unsigned 32-bit integer which represents `Pos` as follows:
  * ```ts
  * 0xffffffff
@@ -14,7 +15,7 @@ type Pos = [from: number, to: number];
  * //     ^^^ <- "length", which is "to - from" (12 bits)
  * ```
  */
-type EncodedPos = number & { __encodedPos: true };
+type EncodedPos = number & { readonly [tag]: "EncodedPos" };
 type WidgetRegistry = { pos: Map<EncodedPos, string>; widgets: Map<string, EmbedWidget> };
 
 function encodePos(pos: Pos): EncodedPos {
@@ -122,7 +123,7 @@ const overrideTooltip = ViewPlugin.define(() => ({
   update(update) {
     for (const url of update.state.field(widgetField).widgets.keys()) {
       const tooltip = document.querySelector<HTMLDivElement>(
-        `.cm-image-reveal-tooltip:has(img[src="${url}"])`,
+        `.cm-editor .cm-image-reveal-tooltip:has(img[src="${url}"])`,
       );
       if (tooltip) {
         tooltip.dataset.embedPlusOverriden = "true";

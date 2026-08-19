@@ -10,7 +10,7 @@
 }
 
 .cm-editor .cm-image-reveal-gap:has(+ .embed-plus-container),
-.cm-image-reveal-tooltip[data-embed-plus-overriden] {
+.cm-editor .cm-image-reveal-tooltip[data-embed-plus-overriden] {
   display: none;
 }
 

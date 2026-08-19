@@ -1,6 +1,10 @@
 import { join } from "node:path";
 import { defineConfig, type Plugin } from "vite-plus";
 
+function isManifest(x: unknown): x is { version: string } {
+  return typeof x === "object" && x !== null && "version" in x && typeof x.version === "string";
+}
+
 function copyManifest(): Plugin {
   let root: string;
   let mode: string;
@@ -15,6 +19,9 @@ function copyManifest(): Plugin {
       const manifest = JSON.parse(
         await this.fs.readFile(join(root, "manifest.json"), { encoding: "utf8" }),
       );
+      if (!isManifest(manifest)) {
+        throw new Error("Invalid manifest.json: missing or invalid 'version' field");
+      }
       if (mode !== "prod") {
         manifest.version += "+dev";
       }

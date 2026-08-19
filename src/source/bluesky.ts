@@ -52,9 +52,6 @@ export default class Bluesky extends EmbedSource {
   static id = 0;
   #id = (Bluesky.id++).toString();
   #src?: string;
-  constructor(url: string) {
-    super(url);
-  }
 
   static override get meta() {
     return {

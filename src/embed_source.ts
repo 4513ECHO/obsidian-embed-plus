@@ -65,9 +65,9 @@ export function lookup(url: string): EmbedSource | null {
   for (const source of sources) {
     if (source.meta.origin === origin) {
       // TODO: proper src check
-      const instance = new source(url);
-      instances.set(url, instance);
-      return instance;
+      const newInstance = new source(url);
+      instances.set(url, newInstance);
+      return newInstance;
     }
   }
   return null;

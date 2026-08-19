@@ -56,7 +56,7 @@ export class EmbedWidget extends WidgetType {
         if (needResolve instanceof Promise) {
           needResolve
             .then(() => resolved(view, this.#url))
-            .catch((error) => {
+            .catch((error: unknown) => {
               if (error instanceof Error) {
                 failed(view, this.#url, error);
               }
@@ -64,17 +64,17 @@ export class EmbedWidget extends WidgetType {
             });
         } else {
           this.#state = "resolved";
-          container.setAttribute("data-state", "resolved");
-          container.appendChild(this.#embedSource.render());
+          container.dataset.state = "resolved";
+          container.append(this.#embedSource.render());
         }
         break;
       }
       case "resolved":
         Loading(container, this.#embedSource.height);
-        container.appendChild(this.#embedSource.render());
+        container.append(this.#embedSource.render());
         break;
       case "loaded":
-        container.appendChild(this.#embedSource.render());
+        container.append(this.#embedSource.render());
         break;
       case "failed":
         ErrorMessage(container, this.#error!);
@@ -92,16 +92,16 @@ export class EmbedWidget extends WidgetType {
   }
 
   override updateDOM(dom: HTMLElement): boolean {
-    const prevUrl = dom.getAttribute("data-url");
+    const prevUrl = dom.dataset.url;
     if (!prevUrl || this.#url !== prevUrl) {
       return false;
     }
-    dom.setAttribute("data-state", this.#state);
+    dom.dataset.state = this.#state;
     switch (this.#state) {
       case "resolving":
         return false;
       case "resolved":
-        dom.appendChild(this.#embedSource.render());
+        dom.append(this.#embedSource.render());
         return true;
       case "loaded": {
         const iframe = dom.querySelector("iframe");
@@ -127,7 +127,7 @@ export function createElement(url: string, dom: HTMLElement): void {
   const container = Container(url, "resolving");
   const loading = Loading(container, embedSource.height);
   container.addEventListener("embed-plus:loaded", () => {
-    container.setAttribute("data-state", "loaded");
+    container.dataset.state = "loaded";
     const iframe = container.querySelector("iframe");
     if (iframe) {
       iframe.style.height = `${embedSource.height}px`;
@@ -138,16 +138,17 @@ export function createElement(url: string, dom: HTMLElement): void {
   if (needResolve instanceof Promise) {
     needResolve
       .then(() => {
-        container.setAttribute("data-state", "resolved");
-        container.appendChild(embedSource.render());
+        container.dataset.state = "resolved";
+        container.append(embedSource.render());
       })
-      .catch((error) => {
-        container.setAttribute("data-state", "failed");
-        ErrorMessage(container, error as Error);
+      .catch((error: unknown) => {
+        if (!(error instanceof Error)) throw error;
+        container.dataset.state = "failed";
+        ErrorMessage(container, error);
         loading.remove();
       });
   } else {
-    container.appendChild(embedSource.render());
+    container.append(embedSource.render());
   }
   dom.replaceWith(container);
 }
