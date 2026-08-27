@@ -14,18 +14,18 @@
     "obsidian": "^1.13.1"
   },
   "devDependencies": {
-    "@optique/core": "^1.2.1",
-    "@optique/run": "^1.2.1",
+    "@optique/core": "^1.2.3",
+    "@optique/run": "^1.2.3",
     "@types/node": "^25.9.5",
     "@types/semver": "^7.8.0",
     "@typescript/native": "npm:typescript@^7.0.2",
     "dax": "^0.45.0",
-    "eslint": "^10.8.1",
-    "eslint-plugin-obsidianmd": "^0.4.1",
+    "eslint": "^10.9.1",
+    "eslint-plugin-obsidianmd": "^0.4.2",
     "semver": "^7.8.5",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vite": "catalog:",
     "vite-plus": "catalog:"
   },
-  "packageManager": "pnpm@11.21.0"
+  "packageManager": "pnpm@11.24.0"
 }
