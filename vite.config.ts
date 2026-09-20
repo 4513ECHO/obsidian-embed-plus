@@ -61,7 +61,7 @@ export default defineConfig(({ mode }) => ({
   },
   run: {
     tasks: {
-      check: ["vp check", "eslint"],
+      check: ["vp check", "tsc", "eslint"],
       "bump-version": "node ./tool/bump_version.ts",
       "test-local": {
         command: "node ./tool/test_local.ts",

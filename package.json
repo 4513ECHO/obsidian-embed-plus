@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc && vp build --mode prod",
+    "build": "vp build --mode prod",
+    "lint": "vp run check",
     "prepare": "vp config"
   },
   "dependencies": {

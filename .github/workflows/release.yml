@@ -10,29 +10,13 @@ jobs:
       contents: write
       id-token: write
       attestations: write
-      artifact-metadata: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: voidzero-dev/setup-vp@v1.19.0
         with:
           cache: true
-      - run: vp run build
-      - name: Validate version
-        id: validate
-        run: |
-          vp exec node ./tool/validate_ci.ts
-      - uses: softprops/action-gh-release@v2
+      - uses: obsidianmd/obsidian-workflows@v1
         with:
-          draft: true
-          prerelease: ${{ steps.validate.outputs.prerelease == 'true' }}
-          working_directory: dist
-          files: |
-            main.js
-            manifest.json
-            styles.css
-      - uses: actions/attest@v4
-        with:
-          subject-path: |
-            dist/main.js
-            dist/manifest.json
-            dist/styles.css
+          mode: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
