@@ -65,7 +65,9 @@ export default defineConfig(({ mode }) => ({
       "bump-version": "node ./tool/bump_version.ts",
       "test-local": {
         command: "node ./tool/test_local.ts",
-        input: ["dist/main.js", "dist/manifest.json", "dist/styles.css"],
+        cache: {
+          input: ["dist/main.js", "dist/manifest.json", "dist/styles.css"],
+        },
       },
     },
   },
